@@ -9,7 +9,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 trait Methods { self: Requests =>
-
   private object json {
     private[this] val Typ = "application/json"
     private[this] val Encoding = "UTF-8"
@@ -26,7 +25,6 @@ trait Methods { self: Requests =>
       _since: Option[FiniteDuration]  = None,
       _before: Option[FiniteDuration] = None,
       _sizes: Option[Boolean] = None) extends Client.Completion[Unit] {
-      def asRep = _ => ()
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
       def since(s: FiniteDuration) = copy(_since = Some(s))
@@ -43,7 +41,6 @@ trait Methods { self: Requests =>
     }
 
     case class Create() extends Client.Completion[Unit] {
-      def asRep = _ => ()
       def apply[T](handler: Client.Handler[T]) =
         request(base.POST / "create")(handler)
       
@@ -51,12 +48,9 @@ trait Methods { self: Requests =>
 
     case class Container(id: String) extends Client.Completion[Unit] {
       case class Logs() extends Client.Completion[Unit] {
-        def asRep = _ => ()
         def apply[T](handler: Client.Handler[T]) =
           request(base / id / "logs")(handler)
       }
-
-      def asRep = _ => ()
 
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
@@ -108,17 +102,6 @@ trait Methods { self: Requests =>
     case class Images(
       _all: Option[Boolean]   = None,
       _filter: Option[String] = None) extends Client.Completion[List[tugboat.Image]] {
-
-      def asRep = (as.json4s.Json andThen (for {
-        JArray(imgs)                 <- _
-        JObject(img)                 <- imgs
-        ("Id", JString(id))          <- img
-        ("Created", JInt(created))   <- img
-        ("Size", JInt(size))         <- img
-        ("VirtualSize", JInt(vsize)) <- img
-      } yield tugboat.Image(
-        id, created.toLong, size.toLong, vsize.toLong)))
-
       def all = copy(_all = Some(true))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
@@ -132,8 +115,6 @@ trait Methods { self: Requests =>
       _repo: Option[String]      = None,
       _tag: Option[String]       = None,
       _registry: Option[String]  = None) extends Client.Completion[Unit] {
-      def asRep = _ => ()
-
       def fromImage(img: String) = copy(_fromImage = Some(img))
       def fromSrc(src: String) = copy(_fromSrc = Some(src))
       def repo(r: String) = copy(_repo = Some(r))
@@ -150,7 +131,6 @@ trait Methods { self: Requests =>
 
     case class Image(id: String) extends Client.Completion[Unit] {
       case class Push(_registry: Option[String] = None) extends Client.Completion[Unit] {
-      def asRep = _ => ()
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "push" <<?
@@ -161,7 +141,6 @@ trait Methods { self: Requests =>
       case class Tag(
         _repo: Option[String]   = None,
         _force: Option[Boolean] = None) extends Client.Completion[Unit] {
-        def asRep = _ => ()
         def repo(r: String) = copy(_repo = Some(r))
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Client.Handler[T]) =
@@ -174,7 +153,6 @@ trait Methods { self: Requests =>
       case class Delete(
         _force: Option[Boolean]   = None,
         _noprune: Option[Boolean] = None) extends Client.Completion[Unit] {
-        def asRep = _ => ()
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Client.Handler[T]) =
@@ -183,8 +161,6 @@ trait Methods { self: Requests =>
                    ++ _force.map(("force" -> _.toString))
                    ++ _noprune.map(("noprune" -> _.toString))))(handler)
       }
-
-      def asRep = _ => ()
 
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
@@ -204,17 +180,6 @@ trait Methods { self: Requests =>
 
     case class Search(
       _term: Option[String] = None) extends Client.Completion[List[SearchResult]] {
-
-      def asRep = (as.json4s.Json andThen (for {
-        JArray(results)                <- _
-        JObject(res)                   <- results
-        ("name", JString(name))        <- res
-        ("description", JString(desc)) <- res
-        ("is_trusted", JBool(trust))  <- res
-        ("is_official", JBool(offic))   <- res
-        ("star_count", JInt(stars))    <- res
-      } yield SearchResult(
-        name, desc, trust, offic, stars.toInt)))
 
       def term(t: String) = copy(_term = Some(t))
       def apply[T](handler: Client.Handler[T]) =
