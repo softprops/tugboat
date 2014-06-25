@@ -6,7 +6,10 @@ import org.json4s._
 
 case class Image(
   id: String, created: Long, size: Long, virtualSize: Long,
-  repoTags: List[String] = Nil, parentId: Option[String] = None)
+  repoTags: List[String] = Nil, parent: Option[String] = None)
+
+case class ImageDetails(
+  id: String, created: String, container: String, size: Long, parent: Option[String] = None)
 
 case class SearchResult(
   name: String, description: String, trusted: Boolean, official: Boolean, stars: Int)
@@ -20,6 +23,7 @@ object Rep {
   implicit object Identity extends Rep[Response] {
     def lift = identity(_)
   }
+
   implicit object Nada extends Rep[Unit] {
     def lift = _ => ()
   }
@@ -47,5 +51,17 @@ object Rep {
         ("star_count", JInt(stars))    <- res
       } yield SearchResult(
         name, desc, trust, offic, stars.toInt)))
+  }
+
+  implicit object ImageDetail extends Rep[Option[ImageDetails]] {
+    def lift = { r => (for {
+      JObject(img) <- as.json4s.Json(r)
+      ("Id", JString(id)) <- img
+      ("Created", JString(created)) <- img
+      ("Container", JString(container)) <- img
+      ("Size", JInt(size)) <- img
+    } yield ImageDetails(
+      id, created, container, size.toLong)).headOption
+    }
   }
 }

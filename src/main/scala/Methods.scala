@@ -129,7 +129,7 @@ trait Methods { self: Requests =>
                ++ _registry.map(("registry" -> _))))(handler)
     }
 
-    case class Image(id: String) extends Client.Completion[Unit] {
+    case class Image(id: String) extends Client.Completion[Option[ImageDetails]] {
       case class Push(_registry: Option[String] = None) extends Client.Completion[Unit] {
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
