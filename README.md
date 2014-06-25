@@ -7,7 +7,7 @@ that speaks the docker protocol for moving applications and containers in an out
 
 ## usage
 
-Tugboat provides interfaces interacting with docker which return [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future).
+Tugboat provides interfaces for interacting with docker which return [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future).
 It's up to your application to deside how to deal with the result of a future.
 
 ```scala
