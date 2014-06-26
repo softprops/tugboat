@@ -8,7 +8,7 @@ object Client {
   type Handler[T] = AsyncHandler[T]
   abstract class Completion[T: Rep] {
     def apply(): Future[T] =
-      apply(implicitly[Rep[T]].lift)
+      apply(implicitly[Rep[T]].map)
     def apply[T]
       (f: Response => T): Future[T] =
         apply(new FunctionHandler(f))

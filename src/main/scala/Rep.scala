@@ -4,6 +4,14 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
+
+case class Port(ip: String, priv: Int, pub: Int, typ: String)
+
+case class Container(
+  id: String, image: String, cmd: String, created: Long, status: String,
+  ports: Seq[Port], names: Seq[String],
+  sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
+
 case class Image(
   id: String, created: Long, size: Long, virtualSize: Long,
   repoTags: List[String] = Nil, parent: Option[String] = None)
@@ -16,20 +24,52 @@ case class SearchResult(
 
 /** type class for default representations */
 sealed trait Rep[T] {
-  def lift: Response => T
+  def map: Response => T
 }
 
 object Rep {
   implicit object Identity extends Rep[Response] {
-    def lift = identity(_)
+    def map = identity(_)
   }
 
   implicit object Nada extends Rep[Unit] {
-    def lift = _ => ()
+    def map = _ => ()
+  }
+
+  implicit object ListOfContainers extends Rep[List[Container]] {
+    def map = (as.json4s.Json andThen (for {
+      JArray(containers)         <- _
+      JObject(cont)              <- containers
+      ("Id", JString(id))        <- cont
+      ("Image", JString(img))    <- cont
+      ("Command", JString(cmd))  <- cont
+      ("Created", JInt(created)) <- cont
+      ("Status", JString(stat))  <- cont
+    } yield Container(
+      id, img, cmd, created.toLong, stat,
+      for {
+        ("Ports", JArray(ps))       <- cont
+        JObject(port)               <- ps
+        ("IP", JString(ip))         <- port
+        ("PrivatePort", JInt(priv)) <- port
+        ("PublicPort", JInt(pub))   <- port
+        ("Type", JString(typ))      <- port
+      } yield Port(ip, priv.toInt, pub.toInt, typ),
+      for {
+        ("Names", JArray(names)) <- cont
+        JString(name) <- names
+      } yield name,
+      (for {
+        ("SizeRw", JInt(size)) <- cont
+      } yield size.toLong).headOption,
+      (for {
+        ("SizeRootFs", JInt(size)) <- cont
+      } yield size.toLong).headOption
+    )))
   }
 
   implicit object ListOfImages extends Rep[List[Image]] {
-    def lift = (as.json4s.Json andThen (for {
+    def map = (as.json4s.Json andThen (for {
         JArray(imgs)                 <- _
         JObject(img)                 <- imgs
         ("Id", JString(id))          <- img
@@ -41,7 +81,7 @@ object Rep {
   }
 
   implicit object ListOfSearchResults extends Rep[List[SearchResult]] {
-    def lift = (as.json4s.Json andThen (for {
+    def map = (as.json4s.Json andThen (for {
         JArray(results)                <- _
         JObject(res)                   <- results
         ("name", JString(name))        <- res
@@ -54,7 +94,7 @@ object Rep {
   }
 
   implicit object ImageDetail extends Rep[Option[ImageDetails]] {
-    def lift = { r => (for {
+    def map = { r => (for {
       JObject(img) <- as.json4s.Json(r)
       ("Id", JString(id)) <- img
       ("Created", JString(created)) <- img

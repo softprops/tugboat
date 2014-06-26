@@ -24,7 +24,7 @@ trait Methods { self: Requests =>
       _limit: Option[Int]             = None,
       _since: Option[FiniteDuration]  = None,
       _before: Option[FiniteDuration] = None,
-      _sizes: Option[Boolean] = None) extends Client.Completion[Unit] {
+      _sizes: Option[Boolean] = None) extends Client.Completion[List[tugboat.Container]] {
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
       def since(s: FiniteDuration) = copy(_since = Some(s))
@@ -36,7 +36,7 @@ trait Methods { self: Requests =>
                  _limit.map(("limit" -> _.toString)) ++
                  _before.map(("before" -> _.toSeconds.toString)) ++
                  _since.map(("since" -> _.toSeconds.toString)) ++
-                 _sizes.map(("sizes" -> _.toString))))(handler)
+                 _sizes.map(("size" -> _.toString))))(handler)
         
     }
 
