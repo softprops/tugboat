@@ -37,16 +37,14 @@ trait Methods { self: Requests =>
                  _before.map(("before" -> _.toSeconds.toString)) ++
                  _since.map(("since" -> _.toSeconds.toString)) ++
                  _sizes.map(("size" -> _.toString))))(handler)
-        
     }
 
     case class Create() extends Client.Completion[Unit] {
       def apply[T](handler: Client.Handler[T]) =
         request(base.POST / "create")(handler)
-      
     }
 
-    case class Container(id: String) extends Client.Completion[Unit] {
+    case class Container(id: String) extends Client.Completion[Option[ContainerDetails]] {
       case class Logs() extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base / id / "logs")(handler)

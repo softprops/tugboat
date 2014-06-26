@@ -4,13 +4,31 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
-
 case class Port(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
   id: String, image: String, cmd: String, created: Long, status: String,
   ports: Seq[Port], names: Seq[String],
   sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
+
+case class ContainerConfig()
+
+case class ContainerState(
+  running: Boolean,
+  paused: Boolean,
+  pid: Int,
+  exitCode: Int,
+  started: String,
+  finished: String)
+
+case class NetworkSettings()
+
+case class HostConfig()
+
+case class ContainerDetails(
+  id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
+  args: Seq[String], config: ContainerConfig, state: ContainerState, image: String,
+  networkSettings: NetworkSettings, resolvConfPath: String, volumes: Seq[String], hostConfig: HostConfig)
 
 case class Image(
   id: String, created: Long, size: Long, virtualSize: Long,
@@ -59,13 +77,40 @@ object Rep {
         ("Names", JArray(names)) <- cont
         JString(name) <- names
       } yield name,
-      (for {
-        ("SizeRw", JInt(size)) <- cont
-      } yield size.toLong).headOption,
-      (for {
-        ("SizeRootFs", JInt(size)) <- cont
-      } yield size.toLong).headOption
+      (for ( ("SizeRw", JInt(size)) <- cont)
+       yield size.toLong).headOption,
+      (for ( ("SizeRootFs", JInt(size)) <- cont)
+       yield size.toLong).headOption
     )))
+  }
+
+  implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {
+    def map = { r => (for {
+      JObject(cont)                                <- as.json4s.Json(r)
+      ("Id", JString(id))                          <- cont
+      ("Name", JString(name))                      <- cont
+      ("Created", JString(created))                <- cont
+      ("Path", JString(path))                      <- cont
+      ("Image", JString(img))                      <- cont
+      ("HostsPath", JString(hostsPath))            <- cont
+      ("HostnamePath", JString(hostnamePath))      <- cont
+      ("ResolvConfPath", JString(resolveConfPath)) <- cont
+    } yield ContainerDetails(
+      id, name, created, path, hostsPath, hostnamePath, for {
+        ("Args", JArray(args)) <- cont
+        JString(arg)           <- args
+      } yield arg, ContainerConfig(), (for {
+        ("State", JObject(state))       <- cont
+        ("Paused", JBool(pause))        <- state
+        ("Running", JBool(run))         <- state
+        ("Pid", JInt(pid))              <- state
+        ("ExitCode", JInt(exit))        <- state
+        ("StartedAt", JString(started)) <- state
+        ("FinishedAt", JString(fin))    <- state
+      } yield ContainerState(
+        run, pause, pid.toInt, exit.toInt, started, fin)).head, img,
+      NetworkSettings(), resolveConfPath, Nil, HostConfig())).headOption
+    }
   }
 
   implicit object ListOfImages extends Rep[List[Image]] {
