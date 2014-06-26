@@ -45,6 +45,11 @@ trait Methods { self: Requests =>
     }
 
     case class Container(id: String) extends Client.Completion[Option[ContainerDetails]] {
+      // todo host config
+      case class Start() extends Client.Completion[Unit] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "start")(handler)
+      }
       case class Logs() extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base / id / "logs")(handler)
@@ -53,40 +58,56 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
 
-      def top[T](handler: Client.Handler[T]) =
-        request(base / id / "top")(handler)
+      def top(args: String = "") = new Client.Completion[Top] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base / id / "top" <<? Map("ps_args" -> args))(handler)
+      }
       
       def logs = Logs()
 
-      def changes[T](handler: Client.Handler[T]) =
-        request(base / id / "changes")(handler)
+      def changes = new Client.Completion[List[Change]] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base / id / "changes")(handler)
+      }
       
       def export[T](handler: Client.Handler[T]) =
         request(base / id / "export")(handler)
 
-      def start[T](handler: Client.Handler[T]) =
-        request(base.POST / id / "start")(handler)
+      def start = Start()
 
-      def stop[T](after: Int = 0)(handler: Client.Handler[T]) =
-        request(base.POST / id / "stop" <<? Map("t" -> after.toString))(handler)
+      def stop[T](after: Int = 0) = new Client.Completion[Unit] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "stop" <<? Map("t" -> after.toString))(handler)
+      }
 
-      def restart[T](after: Int = 0)(handler: Client.Handler[T]) =
-        request(base.POST / id / "restart" <<? Map("t" -> after.toString))(handler)
+      def restart[T](after: Int = 0) = new Client.Completion[Unit] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "restart" <<? Map("t" -> after.toString))(handler)
+      }
 
-      def kill[T](handler: Client.Handler[T]) =
-        request(base.POST / id / "restart")(handler)
+      // todo sig
+      def kill = new Client.Completion[Unit] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "restart")(handler)
+      }
 
+      // todo multiple std in/out
       def attach[T](handler: Client.Handler[T]) =
         request(base.POST / id / "attach")(handler)
 
-      def wait[T](handler: Client.Handler[T]) =
-        request(base.POST / id / "wait")(handler)
+      // await -> wait
+      def await = new Client.Completion[Status] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "wait")(handler)
+      }
 
       def delete[T](handler: Client.Handler[T]) =
         request(base.DELETE / id)(handler)
 
-      def cp[T](handler: Client.Handler[T]) =
-        request(base.POST / id / "copy")(handler)
+      def cp(resource: String) = new Client.Completion[Stream] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "copy")(handler)
+      }
     }
 
     def list = Containers()

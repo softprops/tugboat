@@ -4,6 +4,9 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
+
+case class Stream()
+
 case class Port(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
@@ -29,6 +32,12 @@ case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
   args: Seq[String], config: ContainerConfig, state: ContainerState, image: String,
   networkSettings: NetworkSettings, resolvConfPath: String, volumes: Seq[String], hostConfig: HostConfig)
+
+case class Top(titles: Seq[String], procs: Seq[Seq[String]])
+
+case class Change(path: String, kind: Int)
+
+case class Status(code: Int)
 
 case class Image(
   id: String, created: Long, size: Long, virtualSize: Long,
@@ -113,6 +122,41 @@ object Rep {
     }
   }
 
+  implicit object Tops extends Rep[Top] {
+    def map = { r => (for {
+     JObject(top)                 <- as.json4s.Json(r)
+     ("Titles", JArray(titles))   <- top
+     ("Processes", JArray(procs)) <- top
+    } yield Top(
+      for ( JString(title) <- titles ) yield title,
+      for ( JArray(infos) <- procs ) yield for {
+        JString(info) <- infos
+      } yield info)).head
+    }
+  }
+
+  implicit object ListOfChanges extends Rep[List[Change]] {
+    def map = (as.json4s.Json andThen (for {
+      JArray(changes) <- _
+      JObject(change) <- changes
+      ("Path", JString(path)) <- change
+      ("Kind", JInt(kind)) <- change
+    } yield Change(path, kind.toInt)))
+  }
+
+  implicit object StatusCode extends Rep[Status] {
+    def map = { r => (for {
+      JObject(status)            <- as.json4s.Json(r)
+      ("StatusCode", JInt(code)) <- status
+    } yield Status(code.toInt)).head
+   }
+  }
+
+  implicit object Streamed extends Rep[Stream] {
+    def map = { r => Stream() }
+  }
+
+
   implicit object ListOfImages extends Rep[List[Image]] {
     def map = (as.json4s.Json andThen (for {
         JArray(imgs)                 <- _
@@ -131,8 +175,8 @@ object Rep {
         JObject(res)                   <- results
         ("name", JString(name))        <- res
         ("description", JString(desc)) <- res
-        ("is_trusted", JBool(trust))  <- res
-        ("is_official", JBool(offic))   <- res
+        ("is_trusted", JBool(trust))   <- res
+        ("is_official", JBool(offic))  <- res
         ("star_count", JInt(stars))    <- res
       } yield SearchResult(
         name, desc, trust, offic, stars.toInt)))
