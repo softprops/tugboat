@@ -201,7 +201,6 @@ trait Methods { self: Requests =>
 
     case class Search(
       _term: Option[String] = None) extends Client.Completion[List[SearchResult]] {
-
       def term(t: String) = copy(_term = Some(t))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
@@ -209,25 +208,32 @@ trait Methods { self: Requests =>
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#build-an-image-from-dockerfile-via-stdin */
     case class Build(
-      _t: Option[String]        = None,
+      dir: File,
+      _tag: Option[String]      = None,
       _q: Option[Boolean]       = None,
       _nocache: Option[Boolean] = None,
       _rm: Option[Boolean]      = None,
-      _forcerm: Option[Boolean] = None,
-      _dir: Option[File]        = None) extends Client.Completion[Unit] {
-      def tag(t: String) = copy(_t = Some(t))
+      _forcerm: Option[Boolean] = None) extends Client.Completion[Unit] {
+      def tag(t: String) = copy(_tag = Some(t))
       def verbose(v: Boolean) = copy(_q = Some(!v))
       def nocache(n: Boolean) = copy(_nocache = Some(n))
       def rm(r: Boolean) = copy(_rm = Some(r))
       def forceRm(r: Boolean) = copy(_forcerm = Some(r))
       def apply[T](handler: Client.Handler[T]) =
-        request(host.POST / "build")(handler)
+        request((host.POST <<?
+                (Map.empty[String, String]
+                 ++ _tag.map(("t" -> _))
+                 ++ _q.map(("q" -> _.toString))
+                 ++ _nocache.map(("nocache" -> _.toString))
+                 ++ _rm.map(("rm" -> _.toString))
+                 ++ _forcerm.map(("forcerm" -> _.toString)))
+                <<< dir) / "build")(handler)
     }
 
     def list = Images()
     def create = Create()
     def get(id: String) = Image(id)
     def search = Search()
-    def build = Build()
+    def build(dir: File) = Build(dir)
   }
 }
