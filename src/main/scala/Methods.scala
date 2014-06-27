@@ -220,7 +220,9 @@ trait Methods { self: Requests =>
       def rm(r: Boolean) = copy(_rm = Some(r))
       def forceRm(r: Boolean) = copy(_forcerm = Some(r))
       def apply[T](handler: Client.Handler[T]) =
-        request((host.POST <<?
+        request((host.POST <:< Map(
+                "Content-Type" -> "application/x-tar",
+                "Content-Encoding" -> "gzip") <<?
                 (Map.empty[String, String]
                  ++ _tag.map(("t" -> _))
                  ++ _q.map(("q" -> _.toString))
