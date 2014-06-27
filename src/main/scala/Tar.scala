@@ -48,7 +48,7 @@ object Tar {
           copy(new BufferedInputStream(new FileInputStream(file)))
         }
       }
-
+      include(inDir, name)
       loop(inDir)
       tarStream.close()
   }
