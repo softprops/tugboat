@@ -1,6 +1,7 @@
 package tugboat
 
 import dispatch.{ as, Req }
+import java.io.File
 import org.json4s.JsonDSL._
 import org.json4s.{ JArray, JBool, JInt, JObject, JString, JValue }
 import org.json4s.native.JsonMethods.render
@@ -128,6 +129,7 @@ trait Methods { self: Requests =>
                  ++ _all.map(("all" -> _.toString))))(handler)
     }
 
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
     case class Create(
       _fromImage: Option[String] = None,
       _fromSrc: Option[String]   = None,
@@ -204,10 +206,28 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
     }
-    
+
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#build-an-image-from-dockerfile-via-stdin */
+    case class Build(
+      _t: Option[String]        = None,
+      _q: Option[Boolean]       = None,
+      _nocache: Option[Boolean] = None,
+      _rm: Option[Boolean]      = None,
+      _forcerm: Option[Boolean] = None,
+      _dir: Option[File]        = None) extends Client.Completion[Unit] {
+      def tag(t: String) = copy(_t = Some(t))
+      def verbose(v: Boolean) = copy(_q = Some(!v))
+      def nocache(n: Boolean) = copy(_nocache = Some(n))
+      def rm(r: Boolean) = copy(_rm = Some(r))
+      def forceRm(r: Boolean) = copy(_forcerm = Some(r))
+      def apply[T](handler: Client.Handler[T]) =
+        request(host.POST / "build")(handler)
+    }
+
     def list = Images()
     def create = Create()
     def get(id: String) = Image(id)
     def search = Search()
+    def build = Build()
   }
 }

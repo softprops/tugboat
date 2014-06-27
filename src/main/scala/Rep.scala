@@ -4,7 +4,6 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
-
 case class Stream()
 
 case class Port(ip: String, priv: Int, pub: Int, typ: String)
@@ -155,7 +154,6 @@ object Rep {
   implicit object Streamed extends Rep[Stream] {
     def map = { r => Stream() }
   }
-
 
   implicit object ListOfImages extends Rep[List[Image]] {
     def map = (as.json4s.Json andThen (for {
