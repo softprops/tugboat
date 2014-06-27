@@ -37,7 +37,7 @@ object Tar {
 
     def loop(dir: File): Unit =
       dir.listFiles.foreach { file =>
-        include(file, name + "/" + relativeTo(inDir, file).getOrElse(file).toString)
+        include(file, relativeTo(inDir, file).getOrElse(file).toString)
         if (file.isDirectory) loop(file) else {
           def copy(input: InputStream): Unit = input.read(buffer) match {
             case len if len > -1 =>
@@ -48,7 +48,6 @@ object Tar {
           copy(new BufferedInputStream(new FileInputStream(file)))
         }
       }
-      include(inDir, name)
       loop(inDir)
       tarStream.close()
   }
