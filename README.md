@@ -21,6 +21,13 @@ tb.images.search.term("ship")().map(_.map(_.name)).onComplete(println)
 
 // list the images docked at your station
 tb.images.list().map(_.map(_.id)).onComplete(println)
+
+// be your own shipping port
+import java.io.File
+// tar + gzip a dockerized dir
+tugboat.Tar(new File("path/to/dir/with/Dockerfile/in"), new File("."), "app", zip = true)
+// usher a ship out to sea
+tb.images.build(new File("app.tgz")).tag("ssScala")(dispatch.as.stream.Lines(println))
 ```
 
 Doug Tangren (softprops) 2014
