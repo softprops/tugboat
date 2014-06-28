@@ -2,6 +2,7 @@ package tugboat
 
 import com.ning.http.client.{ AsyncHandler, Response }
 import dispatch.{ FunctionHandler, Http, Req, stream, url, :/ }
+import dispatch.stream.StringsByLine
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Client {
@@ -22,8 +23,8 @@ object Client {
   /** extension of completer providing a default rep of the items within
    *  a streamed response */
   abstract class Stream[T: StreamRep] extends Completer {
-    def apply(f: T => Unit): Future[Unit] =
-      apply(new stream.StringsByLine[Unit] {
+    def stream(f: T => Unit): Future[Unit] =
+      apply(new StringsByLine[Unit] {
         def onStringBy(str: String) {
           f(implicitly[StreamRep[T]].map(str))
         }
