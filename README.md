@@ -27,7 +27,10 @@ import java.io.File
 // tar + gzip a dockerized dir
 tugboat.Tar(new File("path/to/dir/with/Dockerfile/in"), new File("."), "app", zip = true)
 // usher a ship out to sea
-tb.images.build(new File("app.tgz")).tag("ssScala")(dispatch.as.stream.Lines(println))
+tb.images.build(new File("app.tgz")).tag("ssScala") {
+  case BuildOutput.Progress(prog)   => println(prog)
+  case BuildOutput.Error(err, _, _) => println(err)
+}
 ```
 
 Doug Tangren (softprops) 2014

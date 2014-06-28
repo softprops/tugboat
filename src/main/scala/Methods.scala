@@ -213,7 +213,7 @@ trait Methods { self: Requests =>
       _q: Option[Boolean]       = None,
       _nocache: Option[Boolean] = None,
       _rm: Option[Boolean]      = None,
-      _forcerm: Option[Boolean] = None) extends Client.Completion[Unit] {
+      _forcerm: Option[Boolean] = None) extends Client.Stream[BuildOutput] {
       def tag(t: String) = copy(_tag = Some(t))
       def verbose(v: Boolean) = copy(_q = Some(!v))
       def nocache(n: Boolean) = copy(_nocache = Some(n))
