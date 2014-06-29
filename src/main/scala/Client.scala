@@ -53,7 +53,7 @@ object Client {
     Option(System.getenv("DOCKER_HOST"))
       .flatMap( str => allCatch.opt(new URI(str))).map { dockerHost =>
         s"http://${dockerHost.getHost}:${dockerHost.getPort}"
-      }.getOrElse("localhost:2375")
+      }.getOrElse("http://localhost:2375")
 }
 
 abstract class Requests(
