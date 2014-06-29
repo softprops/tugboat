@@ -6,6 +6,8 @@ import dispatch.stream.StringsByLine
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Client {
+  private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
+  private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
   type Handler[T] = AsyncHandler[T]
   /** mixin used for uniform request handler completion */
   trait Completer {
@@ -23,13 +25,17 @@ object Client {
   /** extension of completer providing a default rep of the items within
    *  a streamed response */
   abstract class Stream[T: StreamRep] extends Completer {
-    def stream(f: T => Unit): Future[Unit] =
-      apply(new StringsByLine[Unit] {
+    type Handler = T => Unit
+    protected def streamer: Handler => Client.Handler[Unit] = { f =>
+      new StringsByLine[Unit] {
         def onStringBy(str: String) {
           f(implicitly[StreamRep[T]].map(str))
         }
         def onCompleted = ()
-      })
+      }
+    }
+    def stream(f: Handler): Future[Unit] =
+      apply(streamer(f))
   }
 }
 
@@ -43,7 +49,7 @@ abstract class Requests(
   def request[T]
     (req: Req)
     (handler: Client.Handler[T]): Future[T] =
-    http(req > handler)
+    http(req <:< Client.DefaultHeaders > handler)
 
   def complete(req: Req): Client.Completion[Response] =
     new Client.Completion[Response] {
@@ -52,9 +58,13 @@ abstract class Requests(
     }
 }
 
-
 case class Client(
   hostStr: String,
-  private val http: Http = Http)
+  private val http: Http = new Http)
   (implicit ec: ExecutionContext)
-  extends Requests(hostStr, http)
+  extends Requests(hostStr, http) {
+  /** releases the underlying http client's resources.
+   *  after close() is invoked, all behavior for this
+   *  client is undefined */
+  def close() = http.shutdown()
+}
