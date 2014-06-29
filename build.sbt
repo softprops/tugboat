@@ -9,3 +9,11 @@ libraryDependencies ++= Seq(
   "org.kamranzafar" % "jtar" % "2.2")
 
 initialCommands := "import scala.concurrent.ExecutionContext.Implicits.global"
+
+seq(buildInfoSettings:_*)
+
+sourceGenerators in Compile <+= buildInfo
+
+buildInfoKeys := Seq[BuildInfoKey](version)
+
+buildInfoPackage := "tugboat"
