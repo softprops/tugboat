@@ -9,23 +9,34 @@ object Client {
   private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
   private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
   type Handler[T] = AsyncHandler[T]
+
   /** mixin used for uniform request handler completion */
   trait Completer {
     def apply[T]
       (handler: Client.Handler[T]): Future[T]
   }
+
   /** extension of completer providing a default rep of response */
   abstract class Completion[T: Rep] extends Completer {
+    /** @return a future of the default representation of the response */
     def apply(): Future[T] =
       apply(implicitly[Rep[T]].map)
+    /** @return a future transformed by Response => T*/
     def apply[T]
       (f: Response => T): Future[T] =
         apply(new FunctionHandler(f))
   }
+
   /** extension of completer providing a default rep of the items within
    *  a streamed response */
   abstract class Stream[T: StreamRep] extends Completer {
     type Handler = T => Unit
+    /** @return a future of unit apply a function, f, to each chunk of the streamed response */
+    def stream(f: Handler): Future[Unit] =
+      apply(streamer(f))
+
+    /** @return a function that takes a function to apply to each chunk of a response
+     *          and produces a handler for the request's response */
     protected def streamer: Handler => Client.Handler[Unit] = { f =>
       new StringsByLine[Unit] {
         def onStringBy(str: String) {
@@ -34,8 +45,6 @@ object Client {
         def onCompleted = ()
       }
     }
-    def stream(f: Handler): Future[Unit] =
-      apply(streamer(f))
   }
 }
 
