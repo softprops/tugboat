@@ -32,8 +32,19 @@ tugboat.Tar(new File("path/to/dir/with/Dockerfile/in"), new File("."), "app", zi
 
 // usher a ship out to sea
 tb.images.build(new File("app.tgz")).tag("ssScala").stream {
-  case BuildOutput.Progress(prog)   => println(prog)
-  case BuildOutput.Error(err, _, _) => println(err)
+  case Build.Progress(prog)   => println(prog)
+  case Build.Error(err, _, _) => println(err)
+}
+
+// usher foreign ships into harbor
+tb.images.pull("captain/ship").stream {
+  case Pull.Status(msg) => println(msg)
+  case Pull.Progress(msg, _, details) =>
+    println(msg)
+    details.foreach { dets =>
+      println(dets.bar)
+    }
+  case Pull.Error(msg, _) =>  println(msg)
 }
 ```
 
