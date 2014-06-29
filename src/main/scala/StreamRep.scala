@@ -3,12 +3,19 @@ package tugboat
 import org.json4s.native.JsonMethods.parse
 import org.json4s._
 
-sealed trait BuildOutput
+object Build {
+  sealed trait Output
+  case class Progress(message: String) extends Output
+  case class Error(message: String, code: Int, details: String) extends Output
+}
 
-object BuildOutput {
-  case class Progress(message: String) extends BuildOutput
-  case class Error(message: String, code: Int, details: String)
-    extends BuildOutput
+object Pull {
+  sealed trait Output
+  case class Status(message: String) extends Output
+  case class ProgressDetail(current: Long, total: Long, start: Long, bar: String)
+  /** download progress. details will be None in the case the image has already been downloaded */
+  case class Progress(message: String, id: String, details: Option[ProgressDetail]) extends Output
+  case class Error(message: String, details: String) extends Output 
 }
 
 /** type class for default representations of streamed output */
@@ -25,23 +32,54 @@ object StreamRep {
     def map = _ => ()
   }
 
-  implicit object BuildOutputs extends StreamRep[BuildOutput] {
+  implicit object BuildOutputs extends StreamRep[Build.Output] {
     def map = { str =>
       val JObject(obj) = parse(str)
 
       def progress = (for {
         ("stream", JString(msg)) <- obj
-      } yield BuildOutput.Progress(msg)).headOption
+      } yield Build.Progress(msg)).headOption
 
       def err = (for {
         ("error", JString(msg))          <- obj
         ("errorDetail", JObject(detail)) <- obj
         ("code", JInt(code))             <- detail
         ("message", JString(details))    <- detail
-      } yield BuildOutput.Error(
+      } yield Build.Error(
         msg, code.toInt, details)).headOption
 
       progress.orElse(err).get
     } 
+  }
+
+  implicit object PullOutputs extends StreamRep[Pull.Output] {
+    def map = { str =>
+      val JObject(obj) = parse(str)
+
+      def progress = (for {
+        ("status", JString(message))         <- obj
+        ("id", JString(id))                  <- obj
+        ("progressDetail", JObject(details)) <- obj
+      } yield Pull.Progress(message, id, (for {
+        ("current", JInt(current)) <- details
+        ("total", JInt(total))     <- details
+        ("start", JInt(start))     <- details
+        ("progress", JString(bar)) <- obj
+      } yield Pull.ProgressDetail(
+        current.toLong, total.toLong, start.toLong, bar)).headOption)).headOption
+
+      def status = (for {
+        ("status", JString(msg)) <- obj
+      } yield Pull.Status(msg)).headOption
+
+      def err = (for {
+        ("error", JString(msg))          <- obj
+        ("errorDetail", JObject(detail)) <- obj
+        ("message", JString(details))    <- detail
+      } yield Pull.Error(
+        msg, details)).headOption
+
+      progress.orElse(status).orElse(err).get
+    }
   }
 }
