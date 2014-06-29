@@ -1,13 +1,13 @@
 package tugboat
 
 import com.ning.http.client.{ AsyncHandler, Response }
-import dispatch.{ FunctionHandler, Http, Req, stream, url, :/ }
+import dispatch.{ FunctionHandler, Http, Req,  url, :/ }
 import dispatch.stream.StringsByLine
+import java.net.URI
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.control.Exception.allCatch
 
 object Client {
-  private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
-  private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
   type Handler[T] = AsyncHandler[T]
 
   /** mixin used for uniform request handler completion */
@@ -46,6 +46,14 @@ object Client {
       }
     }
   }
+
+  private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
+  private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
+  private[tugboat] val DefaultHost =
+    Option(System.getenv("DOCKER_HOST"))
+      .flatMap( str => allCatch.opt(new URI(str))).map { dockerHost =>
+        s"http://${dockerHost.getHost}:${dockerHost.getPort}"
+      }.getOrElse("localhost:2375")
 }
 
 abstract class Requests(
@@ -68,7 +76,7 @@ abstract class Requests(
 }
 
 case class Client(
-  hostStr: String,
+  hostStr: String = Client.DefaultHost,
   private val http: Http = new Http)
   (implicit ec: ExecutionContext)
   extends Requests(hostStr, http) {

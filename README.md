@@ -15,7 +15,7 @@ It's up to your application to deside how to deal with the result of a future.
 import scala.concurrent.ExecutionContext.Implicits.global
 
 // create a docker tugboat client
-val tb = tugboat.Client("http://dockerhost:port")
+val tb = tugboat.Client()
 
 // search the sea of docker images for something that looks like a ship
 tb.images.search.term("ship")().map(_.map(_.name)).onComplete(println)
