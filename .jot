@@ -1,0 +1,2 @@
+stream format https://github.com/dotcloud/docker/blob/v1.0.1/utils/streamformatter.go
+json stream https://github.com/dotcloud/docker/blob/v1.0.1/utils/jsonmessage.go#L118
