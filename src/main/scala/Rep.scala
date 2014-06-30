@@ -4,8 +4,6 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
-case class Stream()
-
 case class Port(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
@@ -31,6 +29,8 @@ case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
   args: Seq[String], config: ContainerConfig, state: ContainerState, image: String,
   networkSettings: NetworkSettings, resolvConfPath: String, volumes: Seq[String], hostConfig: HostConfig)
+
+case class Event(id: String, created: Long, createdBy: String, size: Long, tags: Seq[String])
 
 case class Top(titles: Seq[String], procs: Seq[Seq[String]])
 
@@ -121,6 +121,20 @@ object Rep {
     }
   }
 
+  implicit object ListOfEvents extends Rep[List[Event]] {
+    def map = (as.json4s.Json andThen (for {
+      JArray(events)              <- _
+      JObject(event)              <- events
+      ("Id", JString(id))         <- event
+      ("Created", JInt(created))  <- event
+      ("CreatedBy", JString(by))  <- event
+      ("Size", JInt(size))        <- event
+    } yield Event(id, created.toLong, by, size.toLong, for {
+      ("Tags", JArray(tags)) <- event
+      JString(tag)           <- tags
+    } yield tag)))
+  }
+
   implicit object Tops extends Rep[Top] {
     def map = { r => (for {
      JObject(top)                 <- as.json4s.Json(r)
@@ -149,10 +163,6 @@ object Rep {
       ("StatusCode", JInt(code)) <- status
     } yield Status(code.toInt)).head
    }
-  }
-
-  implicit object Streamed extends Rep[Stream] {
-    def map = { r => Stream() }
   }
 
   implicit object ListOfImages extends Rep[List[Image]] {
