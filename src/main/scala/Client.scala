@@ -50,15 +50,16 @@ object Client {
   private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
   private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
   private[tugboat] val DefaultHost =
-    Option(System.getenv("DOCKER_HOST"))
+    Option(System.getenv("DOCKER_HOST")) // boot2dockerism
       .flatMap( str => allCatch.opt(new URI(str))).map { dockerHost =>
         s"http://${dockerHost.getHost}:${dockerHost.getPort}"
       }.getOrElse("http://localhost:2375")
 }
 
 abstract class Requests(
-   hostStr: String, http: Http)
-  (implicit ec: ExecutionContext)
+  hostStr: String, http: Http,
+  protected val authConfig: Option[AuthConfig])
+ (implicit ec: ExecutionContext)
   extends Methods {
 
   def host = url(hostStr)
@@ -83,9 +84,14 @@ abstract class Requests(
 
 case class Client(
   hostStr: String = Client.DefaultHost,
-  private val http: Http = new Http)
-  (implicit ec: ExecutionContext)
-  extends Requests(hostStr, http) {
+  private val http: Http = new Http,
+  private val _auth: Option[AuthConfig] = None)
+ (implicit ec: ExecutionContext)
+  extends Requests(hostStr, http, _auth) {
+
+  /** Authenticate requests */
+  def as(config: AuthConfig) = copy(_auth = Some(config))
+
   /** releases the underlying http client's resources.
    *  after close() is invoked, all behavior for this
    *  client is undefined */
