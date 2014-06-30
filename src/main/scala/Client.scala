@@ -68,8 +68,14 @@ abstract class Requests(
     (handler: Client.Handler[T]): Future[T] =
     http(req <:< Client.DefaultHeaders > handler)
 
-  def complete(req: Req): Client.Completion[Response] =
-    new Client.Completion[Response] {
+  def stream[A: StreamRep](req: Req): Client.Stream[A] =
+    new Client.Stream[A] {
+      def apply[T](handler: Client.Handler[T]): Future[T] =
+        request(req)(handler)
+    }
+
+  def complete[A: Rep](req: Req): Client.Completion[A] =
+    new Client.Completion[A] {
       override def apply[T](handler: Client.Handler[T]) =
         request(req)(handler)
     }
