@@ -11,6 +11,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 trait Methods { self: Requests =>
+
   private object json {
     private[this] val Typ = "application/json"
     private[this] val Encoding = "UTF-8"
@@ -27,6 +28,12 @@ trait Methods { self: Requests =>
     def password(pw: String) = copy(_password = pw)
     def email(em: String) = copy(_email = em)
     def server(svr: String) = copy(_server = svr)
+    def config(cfg: AuthConfig) = copy(
+      _user = cfg.user,
+      _password = cfg.password,
+      _email = cfg.email,
+      _server = cfg.server
+    )
     def apply[T](handler: Client.Handler[T]) =
       request(json.content(host / "auth") <<
               json.str(
@@ -36,7 +43,11 @@ trait Methods { self: Requests =>
                 ("serveraddress" -> _server)))(handler)
   }
 
-  def auth(user: String, password: String, email: String) = Auth(user, password, email)
+  def auth(user: String, password: String, email: String): Auth =
+    Auth(user, password, email)
+
+  def auth(cfg: AuthConfig): Auth =
+    Auth(cfg.user, cfg.password, cfg.email, cfg.password)
 
   object containers {
     private[this] def base = host / "containers"
@@ -198,7 +209,11 @@ trait Methods { self: Requests =>
       case class Push(_registry: Option[String] = None) extends Client.Stream[Unit] {
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "push" <<?
+          request(base.POST / id / "push" <:<
+                (Map.empty[String, String]
+                 ++ authConfig.map(
+                   ("X-Registry-Auth" -> _.headerValue)
+                 )) <<?
                 (Map.empty[String, String]
                  ++ _registry.map(("registry" -> _))))(handler)
       }
@@ -268,7 +283,9 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request((host.POST <:< Map(
                 "Content-Type" -> "application/x-tar",
-                "Content-Encoding" -> "gzip") <<?
+                "Content-Encoding" -> "gzip") ++ authConfig.map(
+                  ("X-Registry-Auth" -> _.headerValue)
+                 ) <<?
                 (Map.empty[String, String]
                  ++ _tag.map(("t" -> _))
                  ++ _q.map(("q" -> _.toString))
