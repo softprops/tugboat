@@ -11,7 +11,31 @@ case class Container(
   ports: Seq[Port], names: Seq[String],
   sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
 
-case class ContainerConfig()
+
+object Create {
+  case class Response(id : String, warnings: Seq[String])
+}
+
+case class ContainerConfig(
+  image: String,
+  cmd: Seq[String]         = Seq.empty,
+  hostname: String          = "",
+  user: String              = "",
+  memory: Long              = 0,
+  memorySwap: Long          = 0,
+  attachStdin: Boolean      = false,
+  attachStdout: Boolean     = true,
+  attachStderr: Boolean     = true,
+  portSpecs: Option[String] = None, // ???
+  tty: Boolean              = false,
+  openStdin: Boolean        = false,
+  stdinOnce: Boolean        = false,
+  env: Map[String, String]  = Map.empty,
+  volumes: Seq[String]      = Seq.empty,
+  workingDir: String        = "",
+  disableNetwork: Boolean   = false,
+  exposedPorts: Seq[String] = Seq.empty  
+)
 
 case class ContainerState(
   running: Boolean,
@@ -83,13 +107,23 @@ object Rep {
       } yield Port(ip, priv.toInt, pub.toInt, typ),
       for {
         ("Names", JArray(names)) <- cont
-        JString(name) <- names
+        JString(name)            <- names
       } yield name,
       (for ( ("SizeRw", JInt(size)) <- cont)
        yield size.toLong).headOption,
       (for ( ("SizeRootFs", JInt(size)) <- cont)
        yield size.toLong).headOption
     )))
+  }
+
+  implicit object CreateResponse extends Rep[Option[Create.Response]] {
+    def map = { r => (for {
+      JObject(resp)       <- as.json4s.Json(r)
+      ("Id", JString(id)) <- resp
+    } yield Create.Response(id, for {
+      ("Warnings", JArray(warns)) <- resp
+      JString(warn)               <- warns
+    } yield warn)).headOption }
   }
 
   implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {
@@ -107,7 +141,10 @@ object Rep {
       id, name, created, path, hostsPath, hostnamePath, for {
         ("Args", JArray(args)) <- cont
         JString(arg)           <- args
-      } yield arg, ContainerConfig(), (for {
+      } yield arg, (for {
+        ("Config", JObject(cfg)) <- cont
+        ("Image", JString(img)) <- cfg
+      } yield ContainerConfig(img)).head, (for {
         ("State", JObject(state))       <- cont
         ("Paused", JBool(pause))        <- state
         ("Running", JBool(run))         <- state

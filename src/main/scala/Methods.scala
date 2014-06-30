@@ -57,7 +57,8 @@ trait Methods { self: Requests =>
       _limit: Option[Int]             = None,
       _since: Option[FiniteDuration]  = None,
       _before: Option[FiniteDuration] = None,
-      _sizes: Option[Boolean] = None) extends Client.Completion[List[tugboat.Container]] {
+      _sizes: Option[Boolean]         = None)
+      extends Client.Completion[List[tugboat.Container]] {
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
       def since(s: FiniteDuration) = copy(_since = Some(s))
@@ -65,16 +66,43 @@ trait Methods { self: Requests =>
       def sizes(include: Boolean) = copy(_sizes = Some(include))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
-                (Map.empty[String, String] ++ _all.map(("all" -> _.toString)) ++
-                 _limit.map(("limit" -> _.toString)) ++
-                 _before.map(("before" -> _.toSeconds.toString)) ++
-                 _since.map(("since" -> _.toSeconds.toString)) ++
-                 _sizes.map(("size" -> _.toString))))(handler)
-    }
+                (Map.empty[String, String]
+                 ++ _all.map(("all" -> _.toString))
+                 ++ _limit.map(("limit"   -> _.toString))
+                 ++ _before.map(("before" -> _.toSeconds.toString))
+                 ++ _since.map(("since"   -> _.toSeconds.toString))
+                 ++ _sizes.map(("size"    -> _.toString))))(handler)
+    }    
 
-    case class Create() extends Client.Completion[Unit] {
+    // ( aka docker run )
+    case class Create(
+      _config: ContainerConfig,
+      _name: Option[String] = None)
+      extends Client.Completion[Option[tugboat.Create.Response]] {
+      def name(n: String) = copy(_name = Some(n))
+      def config(cfg: ContainerConfig) = copy(_config = cfg)
+      def image(img: String) = config(
+        _config.copy(image = img)
+      )
       def apply[T](handler: Client.Handler[T]) =
-        request(base.POST / "create")(handler)
+        request(json.content(base.POST) / "create" <<?
+                (Map.empty[String, String] ++ _name.map(
+                  ("name" -> _)
+                )) << json.str(
+                  ("Hostname"     -> _config.hostname) ~
+                  ("User"         -> _config.user) ~
+                  ("Memory"       -> _config.memory) ~
+                  ("MemorySwap"   -> _config.memorySwap) ~
+                  ("AttachStdin"  -> _config.attachStdin) ~
+                  ("AttachStdout" -> _config.attachStdout) ~
+                  ("AttachStderr" -> _config.attachStderr) ~
+                  ("Tty"          -> _config.tty) ~
+                  ("OpenStdin"    -> _config.openStdin) ~
+                  ("StdinOnce"    -> _config.stdinOnce) ~
+                  ("Cmd"          -> _config.cmd) ~
+                  ("Image"        -> _config.image) ~
+                  ("WorkingDir"   -> _config.workingDir) ~
+                  ("DisableNetwork" -> _config.disableNetwork)))(handler)
     }
 
     case class Container(id: String) extends Client.Completion[Option[ContainerDetails]] {
@@ -147,7 +175,9 @@ trait Methods { self: Requests =>
     }
 
     def list = Containers()
-    def create = Create()
+    def create(image: String) = Create(ContainerConfig(image))
+    /** alias for crete */
+    def run = create _
     def get(id: String) = Container(id)
   }
 
