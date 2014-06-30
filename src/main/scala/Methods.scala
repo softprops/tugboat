@@ -18,6 +18,26 @@ trait Methods { self: Requests =>
     def str(jv: JValue) = compact(render(jv))
   }
 
+  case class Auth(
+    _user: String,
+    _password: String,
+    _email: String,
+    _server: String = "https://index.docker.io/v1/") extends Client.Completion[Unit] {
+    def user(u: String) = copy(_user = u)
+    def password(pw: String) = copy(_password = pw)
+    def email(em: String) = copy(_email = em)
+    def server(svr: String) = copy(_server = svr)
+    def apply[T](handler: Client.Handler[T]) =
+      request(json.content(host / "auth") <<
+              json.str(
+                ("username" -> _user) ~
+                ("password" -> _password) ~
+                ("email" -> _email) ~
+                ("serveraddress" -> _server)))(handler)
+  }
+
+  def auth(user: String, password: String, email: String) = Auth(user, password, email)
+
   object containers {
     private[this] def base = host / "containers"
 
@@ -52,64 +72,67 @@ trait Methods { self: Requests =>
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "start")(handler)
       }
+
+      // todo: stream...
       case class Logs() extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base / id / "logs")(handler)
       }
 
+      case class Delete(
+        _volumes: Option[Boolean] = None,
+        _force: Option[Boolean]   = None) extends Client.Completion[Unit] {
+        def volumes(v: Boolean) = copy(_volumes = Some(v))
+        def force(f: Boolean) = copy(_force = Some(f))
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.DELETE / id <<?
+                  (Map.empty[String, String] ++
+                   _volumes.map(("v" -> _.toString)) ++
+                   _force.map(("force" -> _.toString))))(handler)
+      }
+
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
 
-      def top(args: String = "") = new Client.Completion[Top] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base / id / "top" <<? Map("ps_args" -> args))(handler)
-      }
+      def top(args: String = "") =
+        complete[Top](base / id / "top" <<? Map("ps_args" -> args))
       
       def logs = Logs()
 
-      def changes = new Client.Completion[List[Change]] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base / id / "changes")(handler)
-      }
+      def changes =
+        complete[List[Change]](base / id / "changes")
       
+      // todo octet stream
       def export[T](handler: Client.Handler[T]) =
         request(base / id / "export")(handler)
 
       def start = Start()
 
-      def stop[T](after: Int = 0) = new Client.Completion[Unit] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "stop" <<? Map("t" -> after.toString))(handler)
-      }
+      def stop[T](after: Int = 0) =
+        complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
 
-      def restart[T](after: Int = 0) = new Client.Completion[Unit] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "restart" <<? Map("t" -> after.toString))(handler)
-      }
+      def restart[T](after: Int = 0) =
+        complete[Unit](base.POST / id / "restart" <<? Map("t" -> after.toString))
 
-      // todo sig
-      def kill = new Client.Completion[Unit] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "restart")(handler)
-      }
+      // todo signal
+      def kill =
+        complete[Unit](base.POST / id / "restart")
 
       // todo multiple std in/out
       def attach[T](handler: Client.Handler[T]) =
         request(base.POST / id / "attach")(handler)
 
       // await -> wait
-      def await = new Client.Completion[Status] {
-        def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "wait")(handler)
-      }
+      def await =
+        complete[Status](base.POST / id / "wait")
 
-      def delete[T](handler: Client.Handler[T]) =
-        request(base.DELETE / id)(handler)
+      def delete = Delete()
 
-      def cp(resource: String) = new Client.Completion[Stream] {
+      // todo: octet stream
+     /* def cp(resource: String) = new Client.Stream[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "copy")(handler)
-      }
+      }*/
     }
 
     def list = Containers()
@@ -169,7 +192,10 @@ trait Methods { self: Requests =>
     }
 
     case class Image(id: String) extends Client.Completion[Option[ImageDetails]] {
-      case class Push(_registry: Option[String] = None) extends Client.Completion[Unit] {
+
+      // todo: stream rep
+      // todo: x-registry-auth
+      case class Push(_registry: Option[String] = None) extends Client.Stream[Unit] {
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "push" <<?
@@ -189,9 +215,10 @@ trait Methods { self: Requests =>
                  ++ _force.map(("force" -> _.toString))))(handler)
       }
 
+      // todo: stream rep
       case class Delete(
         _force: Option[Boolean]   = None,
-        _noprune: Option[Boolean] = None) extends Client.Completion[Unit] {
+        _noprune: Option[Boolean] = None) extends Client.Stream[Unit] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Client.Handler[T]) =
@@ -204,11 +231,12 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
 
-      def history = complete(base / id / "history")
+      def history = complete[List[Event]](base / id / "history")
 
+      // todo insert stream
       def insert(url: String, path: String) =
-        complete(base.POST / id  / "insert" <<?
-                 Map("url" -> url, "path" -> path))
+        stream[Unit](base.POST / id  / "insert" <<?
+                     Map("url" -> url, "path" -> path))
 
       def push = Push()
 
