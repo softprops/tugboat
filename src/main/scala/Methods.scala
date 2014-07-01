@@ -67,12 +67,12 @@ trait Methods { self: Requests =>
       def sizes(include: Boolean) = copy(_sizes = Some(include))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
-                (Map.empty[String, String]
-                 ++ _all.map(("all" -> _.toString))
-                 ++ _limit.map(("limit"   -> _.toString))
-                 ++ _before.map(("before" -> _.toSeconds.toString))
-                 ++ _since.map(("since"   -> _.toSeconds.toString))
-                 ++ _sizes.map(("size"    -> _.toString))))(handler)
+               (Map.empty[String, String]
+                ++ _all.map(("all" -> _.toString))
+                ++ _limit.map(("limit"   -> _.toString))
+                ++ _before.map(("before" -> _.toSeconds.toString))
+                ++ _since.map(("since"   -> _.toSeconds.toString))
+                ++ _sizes.map(("size"    -> _.toString))))(handler)
     }    
 
     // ( aka docker run )
@@ -87,9 +87,8 @@ trait Methods { self: Requests =>
       )
       def apply[T](handler: Client.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
-                (Map.empty[String, String] ++ _name.map(
-                  ("name" -> _)
-                )) << json.str(
+                (Map.empty[String, String]
+                 ++ _name.map(("name" -> _))) << json.str(
                   ("Hostname"     -> _config.hostname) ~
                   ("User"         -> _config.user) ~
                   ("Memory"       -> _config.memory) ~
@@ -141,9 +140,9 @@ trait Methods { self: Requests =>
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Client.Handler[T]) =
           request(base.DELETE / id <<?
-                  (Map.empty[String, String] ++
-                   _volumes.map(("v" -> _.toString)) ++
-                   _force.map(("force" -> _.toString))))(handler)
+                 (Map.empty[String, String]
+                  ++ _volumes.map(("v" -> _.toString))
+                  ++ _force.map(("force" -> _.toString))))(handler)
       }
 
       def apply[T](handler: Client.Handler[T]) =
@@ -205,8 +204,8 @@ trait Methods { self: Requests =>
       def all = copy(_all = Some(true))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
-                (Map.empty[String, String]
-                 ++ _all.map(("all" -> _.toString))))(handler)
+               (Map.empty[String, String]
+                ++ _all.map(("all" -> _.toString))))(handler)
     }
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
@@ -241,11 +240,11 @@ trait Methods { self: Requests =>
       def registry(r: String) = copy(_registry = Some(r))      
       def apply[T](handler: Client.Handler[T]) =
         request(base.POST / "create" <<?
-              (Map("fromImage" -> _fromImage)
-               ++ _fromSrc.map(("fromSrc" -> _))
-               ++ _repo.map(("repo" -> _))
-               ++ _tag.map(("tag" -> _))
-               ++ _registry.map(("registry" -> _))))(handler)
+               (Map("fromImage" -> _fromImage)
+                ++ _fromSrc.map(("fromSrc" -> _))
+                ++ _repo.map(("repo" -> _))
+                ++ _tag.map(("tag" -> _))
+                ++ _registry.map(("registry" -> _))))(handler)
     }
 
     case class Image(id: String)
@@ -259,12 +258,12 @@ trait Methods { self: Requests =>
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "push" <:<
-                (Map.empty[String, String]
-                 ++ authConfig.map(
-                   ("X-Registry-Auth" -> _.headerValue)
-                 )) <<?
-                (Map.empty[String, String]
-                 ++ _registry.map(("registry" -> _))))(handler)
+                 (Map.empty[String, String]
+                  ++ authConfig.map(
+                    ("X-Registry-Auth" -> _.headerValue)
+                  )) <<?
+                 (Map.empty[String, String]
+                  ++ _registry.map(("registry" -> _))))(handler)
       }
 
       case class Tag(
@@ -275,9 +274,9 @@ trait Methods { self: Requests =>
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "tag" <<?
-                (Map.empty[String, String]
-                 ++ _repo.map(("repo" -> _))
-                 ++ _force.map(("force" -> _.toString))))(handler)
+                 (Map.empty[String, String]
+                  ++ _repo.map(("repo" -> _))
+                  ++ _force.map(("force" -> _.toString))))(handler)
       }
 
       // todo: stream rep
@@ -289,9 +288,9 @@ trait Methods { self: Requests =>
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Client.Handler[T]) =
           request(base.DELETE / id <<?
-                  (Map.empty[String, String]
-                   ++ _force.map(("force" -> _.toString))
-                   ++ _noprune.map(("noprune" -> _.toString))))(handler)
+                 (Map.empty[String, String]
+                  ++ _force.map(("force" -> _.toString))
+                  ++ _noprune.map(("noprune" -> _.toString))))(handler)
       }
 
       def apply[T](handler: Client.Handler[T]) =
