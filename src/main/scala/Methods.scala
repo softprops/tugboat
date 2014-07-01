@@ -112,6 +112,15 @@ trait Methods { self: Requests =>
           request(base.POST / id / "start")(handler)
       }
 
+      case class Kill(
+        _signal: Option[String] = None) extends Client.Completion[Unit] {
+        def signal(sig: String) = copy(_signal = Some(sig))
+        def apply[T](handler: Client.Handler[T]) =
+          request(base.POST / id / "kill" <<?
+                 (Map.empty[String, String]
+                  ++ _signal.map(("signal" -> _))))(handler)
+      }
+
       // todo: stream...
       case class Logs() extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
@@ -147,15 +156,13 @@ trait Methods { self: Requests =>
 
       def start = Start()
 
-      def stop[T](after: Int = 0) =
+      def stop(after: Int = 0) =
         complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
 
-      def restart[T](after: Int = 0) =
+      def restart(after: Int = 0) =
         complete[Unit](base.POST / id / "restart" <<? Map("t" -> after.toString))
 
-      // todo signal
-      def kill =
-        complete[Unit](base.POST / id / "restart")
+      def kill = Kill()
 
       // todo multiple std in/out
       def attach[T](handler: Client.Handler[T]) =
