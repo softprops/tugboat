@@ -306,12 +306,16 @@ trait Methods { self: Requests =>
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#build-an-image-from-dockerfile-via-stdin */
     case class Build(
-      dir: File,
+      path: File,
       _tag: Option[String]      = None,
       _q: Option[Boolean]       = None,
       _nocache: Option[Boolean] = None,
       _rm: Option[Boolean]      = None,
       _forcerm: Option[Boolean] = None) extends Client.Stream[tugboat.Build.Output] {
+      lazy val tarfile = if (path.isDirectory) {
+        Tar(path, TmpFile.create, path.getName, zip = true)
+      } else path
+
       def tag(t: String) = copy(_tag = Some(t))
       def verbose(v: Boolean) = copy(_q = Some(!v))
       def nocache(n: Boolean) = copy(_nocache = Some(n))
@@ -329,7 +333,7 @@ trait Methods { self: Requests =>
                  ++ _nocache.map(("nocache" -> _.toString))
                  ++ _rm.map(("rm" -> _.toString))
                  ++ _forcerm.map(("forcerm" -> _.toString)))
-                <<< dir) / "build")(handler)
+                <<< tarfile) / "build")(handler)
     }
 
     def list = Images()
@@ -340,6 +344,7 @@ trait Methods { self: Requests =>
     def create = pull _
     def get(id: String) = Image(id)
     def search = Search()
-    def build(dir: File) = Build(dir)
+    /** if path is a directory, it will be bundled into a gzipped tar. otherwise we assume a tar file */
+    def build(path: File) = Build(path)
   }
 }
