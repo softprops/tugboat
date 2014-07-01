@@ -35,10 +35,10 @@ object Tar {
       tarStream
     }
 
-    def loop(dir: File): Unit =
+    def bundle(dir: File): Unit =
       dir.listFiles.foreach { file =>
         include(file, relativeTo(inDir, file).getOrElse(file).toString)
-        if (file.isDirectory) loop(file) else {
+        if (file.isDirectory) bundle(file) else {
           def copy(input: InputStream): Unit = input.read(buffer) match {
             case len if len > -1 =>
               tarStream.write(buffer, 0, len)
@@ -48,8 +48,8 @@ object Tar {
           copy(new BufferedInputStream(new FileInputStream(file)))
         }
       }
-      loop(inDir)
-      tarStream.close()
+    bundle(inDir)
+    tarStream.close()
   }
 
   // thanks sbt ( mark ) ...
