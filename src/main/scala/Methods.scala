@@ -23,7 +23,8 @@ trait Methods { self: Requests =>
     _user: String,
     _password: String,
     _email: String,
-    _server: String = "https://index.docker.io/v1/") extends Client.Completion[Unit] {
+    _server: String = "https://index.docker.io/v1/")
+    extends Client.Completion[Unit] {
     def user(u: String) = copy(_user = u)
     def password(pw: String) = copy(_password = pw)
     def email(em: String) = copy(_email = em)
@@ -105,15 +106,19 @@ trait Methods { self: Requests =>
                   ("DisableNetwork" -> _config.disableNetwork)))(handler)
     }
 
-    case class Container(id: String) extends Client.Completion[Option[ContainerDetails]] {
+    case class Container(id: String)
+      extends Client.Completion[Option[ContainerDetails]] {
+
       // todo host config
-      case class Start() extends Client.Completion[Unit] {
+      case class Start()
+        extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "start")(handler)
       }
 
       case class Kill(
-        _signal: Option[String] = None) extends Client.Completion[Unit] {
+        _signal: Option[String] = None)
+        extends Client.Completion[Unit] {
         def signal(sig: String) = copy(_signal = Some(sig))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "kill" <<?
@@ -122,14 +127,16 @@ trait Methods { self: Requests =>
       }
 
       // todo: stream...
-      case class Logs() extends Client.Completion[Unit] {
+      case class Logs()
+        extends Client.Completion[Unit] {
         def apply[T](handler: Client.Handler[T]) =
           request(base / id / "logs")(handler)
       }
 
       case class Delete(
         _volumes: Option[Boolean] = None,
-        _force: Option[Boolean]   = None) extends Client.Completion[Unit] {
+        _force: Option[Boolean]   = None)
+        extends Client.Completion[Unit] {
         def volumes(v: Boolean) = copy(_volumes = Some(v))
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Client.Handler[T]) =
@@ -193,7 +200,8 @@ trait Methods { self: Requests =>
 
     case class Images(
       _all: Option[Boolean]   = None,
-      _filter: Option[String] = None) extends Client.Completion[List[tugboat.Image]] {
+      _filter: Option[String] = None)
+      extends Client.Completion[List[tugboat.Image]] {
       def all = copy(_all = Some(true))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
@@ -207,7 +215,8 @@ trait Methods { self: Requests =>
       _fromSrc: Option[String]   = None,
       _repo: Option[String]      = None,
       _tag: Option[String]       = None,
-      _registry: Option[String]  = None) extends Client.Stream[tugboat.Pull.Output] {
+      _registry: Option[String]  = None)
+      extends Client.Stream[tugboat.Pull.Output] {
 
       override protected def streamer = { f =>
         /** Like StringsByLine doesn't buffer. The images/create response
@@ -239,11 +248,14 @@ trait Methods { self: Requests =>
                ++ _registry.map(("registry" -> _))))(handler)
     }
 
-    case class Image(id: String) extends Client.Completion[Option[ImageDetails]] {
+    case class Image(id: String)
+      extends Client.Completion[Option[ImageDetails]] {
 
       // todo: stream rep
       // todo: x-registry-auth
-      case class Push(_registry: Option[String] = None) extends Client.Stream[Unit] {
+      case class Push(
+        _registry: Option[String] = None)
+        extends Client.Stream[Unit] {
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "push" <:<
@@ -257,7 +269,8 @@ trait Methods { self: Requests =>
 
       case class Tag(
         _repo: Option[String]   = None,
-        _force: Option[Boolean] = None) extends Client.Completion[Unit] {
+        _force: Option[Boolean] = None)
+        extends Client.Completion[Unit] {
         def repo(r: String) = copy(_repo = Some(r))
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Client.Handler[T]) =
@@ -270,7 +283,8 @@ trait Methods { self: Requests =>
       // todo: stream rep
       case class Delete(
         _force: Option[Boolean]   = None,
-        _noprune: Option[Boolean] = None) extends Client.Stream[Unit] {
+        _noprune: Option[Boolean] = None)
+        extends Client.Stream[Unit] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Client.Handler[T]) =
@@ -298,7 +312,8 @@ trait Methods { self: Requests =>
     }
 
     case class Search(
-      _term: Option[String] = None) extends Client.Completion[List[SearchResult]] {
+      _term: Option[String] = None)
+      extends Client.Completion[List[SearchResult]] {
       def term(t: String) = copy(_term = Some(t))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
@@ -311,7 +326,8 @@ trait Methods { self: Requests =>
       _q: Option[Boolean]       = None,
       _nocache: Option[Boolean] = None,
       _rm: Option[Boolean]      = None,
-      _forcerm: Option[Boolean] = None) extends Client.Stream[tugboat.Build.Output] {
+      _forcerm: Option[Boolean] = None)
+      extends Client.Stream[tugboat.Build.Output] {
       lazy val tarfile = if (path.isDirectory) {
         Tar(path, TmpFile.create, path.getName, zip = true)
       } else path
