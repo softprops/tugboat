@@ -18,23 +18,28 @@ object Create {
 
 case class ContainerConfig(
   image: String,
-  cmd: Seq[String]         = Seq.empty,
-  hostname: String          = "",
-  user: String              = "",
-  memory: Long              = 0,
-  memorySwap: Long          = 0,
   attachStdin: Boolean      = false,
   attachStdout: Boolean     = true,
   attachStderr: Boolean     = true,
-  portSpecs: Option[String] = None, // ???
-  tty: Boolean              = false,
-  openStdin: Boolean        = false,
-  stdinOnce: Boolean        = false,
+  cmd: Seq[String]          = Seq.empty,
+  cpuShares: Int            = 0,
+  cputSet: String           = "",
+  domainName: String        = "",
+  entryPoint: Seq[String]   = Seq.empty,
   env: Map[String, String]  = Map.empty,
+  exposedPorts: Seq[String] = Seq.empty,
+  hostname: String          = "",
+  memory: Long              = 0,
+  memorySwap: Long          = 0,
+  networkDisabled: Boolean  = false,
+//  onBuild: ???
+  openStdin: Boolean        = false,
+  portSpecs: Option[String] = None, // ???
+  stdinOnce: Boolean        = false,
+  user: String              = "",
+  tty: Boolean              = false,
   volumes: Seq[String]      = Seq.empty,
-  workingDir: String        = "",
-  disableNetwork: Boolean   = false,
-  exposedPorts: Seq[String] = Seq.empty  
+  workingDir: String        = ""
 )
 
 case class ContainerState(
@@ -127,6 +132,8 @@ object Rep {
   }
 
   implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {
+    private[this] val KeyVal = """(.+)=(.+)"""r
+
     def map = { r => (for {
       JObject(cont)                                <- as.json4s.Json(r)
       ("Id", JString(id))                          <- cont
@@ -141,10 +148,12 @@ object Rep {
       id, name, created, path, hostsPath, hostnamePath, for {
         ("Args", JArray(args)) <- cont
         JString(arg)           <- args
-      } yield arg, (for {
-        ("Config", JObject(cfg)) <- cont
-        ("Image", JString(img)) <- cfg
-      } yield ContainerConfig(img)).head, (for {
+      } yield arg, containerConfig(cont), containerState(cont), img,
+      NetworkSettings(), resolveConfPath, Nil, HostConfig())).headOption
+    }
+
+    private def containerState(cont: List[JField]) =
+      (for {
         ("State", JObject(state))       <- cont
         ("Paused", JBool(pause))        <- state
         ("Running", JBool(run))         <- state
@@ -153,9 +162,31 @@ object Rep {
         ("StartedAt", JString(started)) <- state
         ("FinishedAt", JString(fin))    <- state
       } yield ContainerState(
-        run, pause, pid.toInt, exit.toInt, started, fin)).head, img,
-      NetworkSettings(), resolveConfPath, Nil, HostConfig())).headOption
-    }
+        run, pause, pid.toInt, exit.toInt, started, fin)).head
+
+    private def containerConfig(cont: List[JField]) =
+      (for {
+        ("Config", JObject(cfg))           <- cont
+        ("Image", JString(img))            <- cfg
+        ("AttachStderr", JBool(atStdErr))  <- cfg
+        ("AttachStdin", JBool(atStdIn))    <- cfg
+        ("AttachStdout", JBool(atStdO))    <- cfg
+        ("Cmd", JArray(cmd))               <- cfg
+        ("CpuShares", JInt(cpuShares))     <- cfg
+        ("Cpuset", JString(cpuSet))        <- cfg
+        ("Domainname", JString(domain))    <- cfg
+        ("Env", JArray(env))               <- cfg
+        ("ExposedPorts", JObject(ports))   <- cfg
+      } yield ContainerConfig(
+        img, atStdErr, atStdIn, atStdO, for {
+          JString(arg) <- cmd
+        } yield arg, cpuShares.toInt, cpuSet,
+        domain, (for {
+          ("Entrypoint", JArray(ep)) <- cfg
+          JString(e)                 <- ep
+        } yield e), (for {
+          JString(KeyVal(k, v)) <- env
+        } yield (k, v)).toMap)).head
   }
 
   implicit object ListOfEvents extends Rep[List[Event]] {

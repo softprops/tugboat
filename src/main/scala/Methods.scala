@@ -88,21 +88,23 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
                 (Map.empty[String, String]
-                 ++ _name.map(("name" -> _))) << json.str(
-                  ("Hostname"     -> _config.hostname) ~
-                  ("User"         -> _config.user) ~
-                  ("Memory"       -> _config.memory) ~
-                  ("MemorySwap"   -> _config.memorySwap) ~
-                  ("AttachStdin"  -> _config.attachStdin) ~
-                  ("AttachStdout" -> _config.attachStdout) ~
-                  ("AttachStderr" -> _config.attachStderr) ~
-                  ("Tty"          -> _config.tty) ~
-                  ("OpenStdin"    -> _config.openStdin) ~
-                  ("StdinOnce"    -> _config.stdinOnce) ~
-                  ("Cmd"          -> _config.cmd) ~
-                  ("Image"        -> _config.image) ~
-                  ("WorkingDir"   -> _config.workingDir) ~
-                  ("DisableNetwork" -> _config.disableNetwork)))(handler)
+                 ++ _name.map(("name" -> _))) << bodyStr)(handler)
+
+      def bodyStr = json.str(
+                  ("Hostname"        -> _config.hostname) ~
+                  ("User"            -> _config.user) ~
+                  ("Memory"          -> _config.memory) ~
+                  ("MemorySwap"      -> _config.memorySwap) ~
+                  ("AttachStdin"     -> _config.attachStdin) ~
+                  ("AttachStdout"    -> _config.attachStdout) ~
+                  ("AttachStderr"    -> _config.attachStderr) ~
+                  ("Tty"             -> _config.tty) ~
+                  ("OpenStdin"       -> _config.openStdin) ~
+                  ("StdinOnce"       -> _config.stdinOnce) ~
+                  ("Cmd"             -> _config.cmd) ~
+                  ("Image"           -> _config.image) ~
+                  ("WorkingDir"      -> _config.workingDir) ~
+                  ("NetworkDisabled" -> _config.networkDisabled))
     }
 
     case class Container(id: String)
@@ -204,7 +206,7 @@ trait Methods { self: Requests =>
       def all = copy(_all = Some(true))
       def filters(fs: Map[String, List[String]]) = copy(_filters = Some(fs))
       // ( aka untagged ) for convenience
-      def dangling(dang: Boolean) = filters(("dangling", dang.toString :: Nil))
+      def dangling(dang: Boolean) = filters(Map("dangling" -> (dang.toString :: Nil)))
       def apply[T](handler: Client.Handler[T]) = {
         request(base / "json" <<?
                (Map.empty[String, String]
