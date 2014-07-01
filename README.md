@@ -25,11 +25,9 @@ tb.images.list().map(_.map(_.id)).onComplete(println)
 
 // be your own shipping port
 
-import java.io.File
-
 // usher a ship out to sea
 import tugboat.Build
-tb.images.build(new File("path/to/dir/Dockerfile/is/in")).tag("ssScala").stream {
+tb.images.build(new java.io.File("path/to/dir/Dockerfile/is/in")).tag("ssScala").stream {
   case Build.Progress(prog)   => println(prog)
   case Build.Error(err, _, _) => println(err)
 }
