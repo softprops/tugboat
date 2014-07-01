@@ -198,14 +198,19 @@ trait Methods { self: Requests =>
     private[this] def base = host / "images"
 
     case class Images(
-      _all: Option[Boolean]   = None,
-      _filter: Option[String] = None)
+      _all: Option[Boolean]                       = None,
+      _filters: Option[Map[String, List[String]]] =  None)
       extends Client.Completion[List[tugboat.Image]] {
       def all = copy(_all = Some(true))
-      def apply[T](handler: Client.Handler[T]) =
+      def filters(fs: Map[String, List[String]]) = copy(_filters = Some(fs))
+      // ( aka untagged ) for convenience
+      def dangling(dang: Boolean) = filters(("dangling", dang.toString :: Nil))
+      def apply[T](handler: Client.Handler[T]) = {
         request(base / "json" <<?
                (Map.empty[String, String]
-                ++ _all.map(("all" -> _.toString))))(handler)
+                ++ _all.map(("all" -> _.toString)))
+                ++ _filters.map("filters" -> json.str(_)))(handler)
+      }
     }
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
