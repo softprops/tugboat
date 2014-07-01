@@ -12,10 +12,11 @@ object Tar {
    *  @param inDir directory to create a tar archive from
    *  @param outDir directory to create tar file in
    *  @param name the name of the tar archive ( excluding the file extention ) */
-  def apply(inDir: File, outDir: File, name: String, zip: Boolean = false) = {
+  def apply(inDir: File, outDir: File, name: String, zip: Boolean = false): File = {
     val buffer = Array.fill(1024 * 1024)(0: Byte)
     val outExt = if (zip) "tgz" else "tar"
-    val fos = new FileOutputStream(new File(outDir, s"$name.$outExt"))
+    val outFile = new File(outDir, s"$name.$outExt")
+    val fos = new FileOutputStream(outFile)
     val outStream = if (zip) new GZIPOutputStream(fos) {
       `def`.setLevel(Deflater.BEST_COMPRESSION)
     } else fos
@@ -50,6 +51,7 @@ object Tar {
       }
     bundle(inDir)
     tarStream.close()
+    outFile
   }
 
   // thanks sbt ( mark ) ...
