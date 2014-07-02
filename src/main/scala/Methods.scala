@@ -4,7 +4,7 @@ import dispatch.{ as, Req }
 import dispatch.stream.Strings
 import java.io.File
 import org.json4s.JsonDSL._
-import org.json4s.{ JArray, JBool, JInt, JObject, JString, JValue }
+import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue }
 import org.json4s.native.JsonMethods.render
 import org.json4s.native.Printer.compact
 import scala.concurrent.Future
@@ -124,14 +124,16 @@ trait Methods { self: Requests =>
 
       case class Start(_config: HostConfig)
         extends Client.Completion[Unit] {
-        def port(prt: String, binding: PortBinding) =
-          copy(_config = _config.copy(ports = _config.ports + (prt -> (binding :: Nil))))
+        def port(prt: String, binding: PortBinding*) =
+          copy(_config = _config.copy(ports = _config.ports + (prt -> binding.toList)))
+        def links(lx: String*) =
+          copy(_config = _config.copy(links = lx.toSeq))
         // todo: complete builder interface
         def apply[T](handler: Client.Handler[T]) =
           request(json.content(base.POST) / id / "start" << bodyStr)(handler)
 
         def bodyStr = json.str(
-          ("Binds" -> _config.binds) ~
+          ("Binds" -> Option(_config.binds).filter(_.nonEmpty)) ~
           ("ContainerIDFile" -> _config.containerIdFile) ~
           ("LxcConf" -> _config.lxcConf) ~
           ("Privileged" -> _config.privileged) ~
@@ -142,12 +144,12 @@ trait Methods { self: Requests =>
                 ("HostPort" -> binding.hostPort.toString)
               })
           }) ~
-          ("Links" -> _config.links) ~
+          ("Links" -> Option(_config.links).filter(_.nonEmpty)) ~
           ("PublishAllPorts" -> _config.publishAllPorts) ~
-          ("Dns" -> _config.dns) ~
-          ("DnsSearch" -> _config.dnsSearch) ~
+          ("Dns" -> Option(_config.dns).filter(_.nonEmpty)) ~
+          ("DnsSearch" -> Option(_config.dnsSearch).filter(_.nonEmpty)) ~
           ("NetworkMode" -> _config.networkMode) ~
-          ("VolumesFrom" -> _config.volumesFrom))
+          ("VolumesFrom" -> Option(_config.volumesFrom).filter(_.nonEmpty)))
       }
 
       case class Kill(
