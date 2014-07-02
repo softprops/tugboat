@@ -19,11 +19,11 @@ object Create {
 case class ContainerConfig(
   image: String,
   attachStdin: Boolean      = false,
-  attachStdout: Boolean     = true,
-  attachStderr: Boolean     = true,
+  attachStdout: Boolean     = false,
+  attachStderr: Boolean     = false,
   cmd: Seq[String]          = Seq.empty,
   cpuShares: Int            = 0,
-  cputSet: String           = "",
+  cpuSet: String           = "",
   domainName: String        = "",
   entryPoint: Seq[String]   = Seq.empty,
   env: Map[String, String]  = Map.empty,
@@ -34,7 +34,6 @@ case class ContainerConfig(
   networkDisabled: Boolean  = false,
 //  onBuild: ???
   openStdin: Boolean        = false,
-  portSpecs: Option[String] = None, // ???
   stdinOnce: Boolean        = false,
   user: String              = "",
   tty: Boolean              = false,
@@ -50,9 +49,24 @@ case class ContainerState(
   started: String,
   finished: String)
 
-case class NetworkSettings()
+// https://github.com/dotcloud/docker/blob/master/nat/nat.go#L19
+case class PortBinding(hostIp: String, hostPort: Int)
+case class NetworkSettings(
+  bridge: String, gateway: String, ipAddr: String, ipPrefixLen: Int, ports: Map[String, List[PortBinding]])
 
-case class HostConfig()
+// https://github.com/dotcloud/docker/blob/v1.0.1/runconfig/hostconfig.go#L22
+case class HostConfig(
+  binds: Seq[String]                    = Seq.empty,
+  containerIdFile: String               = "",
+  lxcConf: Seq[String]                  = Seq.empty,
+  privileged: Boolean                   = false,
+  ports: Map[String, List[PortBinding]] = Map.empty,
+  links: Seq[String]                    = Seq.empty,
+  publishAllPorts: Boolean              = false,
+  dns: Seq[String]                      = Seq.empty,
+  dnsSearch: Seq[String]                = Seq.empty,
+  volumesFrom: Seq[String]              = Seq.empty,
+  networkMode: String                   = "bridge")
 
 case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
@@ -132,7 +146,7 @@ object Rep {
   }
 
   implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {
-    private[this] val KeyVal = """(.+)=(.+)"""r
+    private[this] val KeyVal = """(.+)=(.+)""".r
 
     def map = { r => (for {
       JObject(cont)                                <- as.json4s.Json(r)
@@ -148,9 +162,32 @@ object Rep {
       id, name, created, path, hostsPath, hostnamePath, for {
         ("Args", JArray(args)) <- cont
         JString(arg)           <- args
-      } yield arg, containerConfig(cont), containerState(cont), img,
-      NetworkSettings(), resolveConfPath, Nil, HostConfig())).headOption
+      } yield arg,
+      containerConfig(cont),
+      containerState(cont),
+      img,
+      containerNetworkSettings(cont),
+      resolveConfPath, Nil, HostConfig())).headOption
     }
+
+    private def containerNetworkSettings(cont: List[JField]) =
+      (for {
+        ("NetworkSettings", JObject(settings)) <- cont
+        ("Bridge", JString(bridge))            <- settings
+        ("Gateway", JString(gateway))          <- settings
+        ("IPAddress", JString(ip))             <- settings
+        ("IPPrefixLen", JInt(prefLen))         <- settings
+      } yield NetworkSettings(bridge, gateway, ip, prefLen.toInt, (for {
+        ("Ports", JObject(ports)) <- settings
+        (port, mappings)          <- ports
+      } yield {
+        (port, (for {
+          JArray(confs)                   <- mappings
+          JObject(conf)                   <- confs
+          ("HostIp", JString(hostIp))     <- conf
+          ("HostPort", JString(hostPort)) <- conf
+        } yield PortBinding(hostIp, hostPort.toInt)))
+      }).toMap)).head
 
     private def containerState(cont: List[JField]) =
       (for {

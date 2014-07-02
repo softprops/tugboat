@@ -75,7 +75,6 @@ trait Methods { self: Requests =>
                 ++ _sizes.map(("size"    -> _.toString))))(handler)
     }    
 
-    // ( aka docker run )
     case class Create(
       _config: ContainerConfig,
       _name: Option[String] = None)
@@ -85,36 +84,70 @@ trait Methods { self: Requests =>
       def image(img: String) = config(
         _config.copy(image = img)
       )
+      // todo: complete builder interface
       def apply[T](handler: Client.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
                 (Map.empty[String, String]
                  ++ _name.map(("name" -> _))) << bodyStr)(handler)
 
+      // config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L213
+      // host config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L236
+      // run https://github.com/dotcloud/docker/blob/master/api/client/commands.go#L1897
+
       def bodyStr = json.str(
-                  ("Hostname"        -> _config.hostname) ~
-                  ("User"            -> _config.user) ~
-                  ("Memory"          -> _config.memory) ~
-                  ("MemorySwap"      -> _config.memorySwap) ~
-                  ("AttachStdin"     -> _config.attachStdin) ~
-                  ("AttachStdout"    -> _config.attachStdout) ~
-                  ("AttachStderr"    -> _config.attachStderr) ~
-                  ("Tty"             -> _config.tty) ~
-                  ("OpenStdin"       -> _config.openStdin) ~
-                  ("StdinOnce"       -> _config.stdinOnce) ~
-                  ("Cmd"             -> _config.cmd) ~
-                  ("Image"           -> _config.image) ~
-                  ("WorkingDir"      -> _config.workingDir) ~
-                  ("NetworkDisabled" -> _config.networkDisabled))
+        ("Hostname"        -> _config.hostname) ~
+        ("Domainname"      -> _config.domainName) ~
+        ("ExposedPorts"    -> _config.exposedPorts.map { ep =>
+          (ep -> JObject())
+        }) ~
+        ("User"            -> _config.user) ~
+        ("Tty"             -> _config.tty) ~
+        ("NetworkDisabled" -> _config.networkDisabled) ~
+        ("OpenStdin"       -> _config.openStdin) ~
+        ("Memory"          -> _config.memory) ~
+        ("CpuShares"       -> _config.cpuShares) ~
+        ("Cpuset"          -> _config.cpuSet) ~
+        ("AttachStdin"     -> _config.attachStdin) ~
+        ("AttachStdout"    -> _config.attachStdout) ~
+        ("AttachStderr"    -> _config.attachStderr) ~
+        ("Env"             -> _config.env.map { case (k,v) => s"$k=$v" }) ~
+        ("Cmd"             -> Option(_config.cmd).filter(_.nonEmpty)) ~
+        ("Image"           -> _config.image) ~
+        ("Volumes"         -> _config.volumes.map { vol =>
+          (vol, JObject())
+        }) ~
+        ("WorkingDir"      -> _config.workingDir))
     }
 
     case class Container(id: String)
       extends Client.Completion[Option[ContainerDetails]] {
 
-      // todo host config
-      case class Start()
+      case class Start(_config: HostConfig)
         extends Client.Completion[Unit] {
+        def port(prt: String, binding: PortBinding) =
+          copy(_config = _config.copy(ports = _config.ports + (prt -> (binding :: Nil))))
+        // todo: complete builder interface
         def apply[T](handler: Client.Handler[T]) =
-          request(base.POST / id / "start")(handler)
+          request(json.content(base.POST) / id / "start" << bodyStr)(handler)
+
+        def bodyStr = json.str(
+          ("Binds" -> _config.binds) ~
+          ("ContainerIDFile" -> _config.containerIdFile) ~
+          ("LxcConf" -> _config.lxcConf) ~
+          ("Privileged" -> _config.privileged) ~
+          ("PortBindings" -> _config.ports.map {
+            case (port, bindings) =>
+              (port -> bindings.map { binding =>
+                ("HostIp" -> binding.hostIp) ~
+                ("HostPort" -> binding.hostPort.toString)
+              })
+          }) ~
+          ("Links" -> _config.links) ~
+          ("PublishAllPorts" -> _config.publishAllPorts) ~
+          ("Dns" -> _config.dns) ~
+          ("DnsSearch" -> _config.dnsSearch) ~
+          ("NetworkMode" -> _config.networkMode) ~
+          ("VolumesFrom" -> _config.volumesFrom))
       }
 
       case class Kill(
@@ -162,7 +195,7 @@ trait Methods { self: Requests =>
       def export[T](handler: Client.Handler[T]) =
         request(base / id / "export")(handler)
 
-      def start = Start()
+      def start = Start(HostConfig())
 
       def stop(after: Int = 0) =
         complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
@@ -189,10 +222,16 @@ trait Methods { self: Requests =>
       }*/
     }
 
+    /** aka docker ps */
     def list = Containers()
+
+    /** aka docker run */
     def create(image: String) = Create(ContainerConfig(image))
+
     /** alias for crete */
     def run = create _
+
+    /** aka docker inspect */
     def get(id: String) = Container(id)
   }
 
