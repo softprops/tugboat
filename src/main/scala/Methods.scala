@@ -84,6 +84,9 @@ trait Methods { self: Requests =>
       def image(img: String) = config(
         _config.copy(image = img)
       )
+      def volumes(vx: String*) = config(
+        _config.copy(volumes = vx.toSeq)
+      )
       // todo: complete builder interface
       def apply[T](handler: Client.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
@@ -124,10 +127,13 @@ trait Methods { self: Requests =>
 
       case class Start(_config: HostConfig)
         extends Client.Completion[Unit] {
-        def port(prt: String, binding: PortBinding*) =
-          copy(_config = _config.copy(ports = _config.ports + (prt -> binding.toList)))
-        def links(lx: String*) =
-          copy(_config = _config.copy(links = lx.toSeq))
+        def config(cfg: HostConfig) = copy(_config = cfg)
+        def port(prt: String, binding: PortBinding*) = config(
+          _config.copy(ports = _config.ports + (prt -> binding.toList))
+        )
+        def links(lx: String*) = config(
+          _config.copy(links = lx.toSeq)
+        )
         // todo: complete builder interface
         def apply[T](handler: Client.Handler[T]) =
           request(json.content(base.POST) / id / "start" << bodyStr)(handler)
