@@ -13,42 +13,40 @@ import scala.concurrent.duration.FiniteDuration
 trait Methods { self: Requests =>
 
   private object json {
-    private[this] val Typ = "application/json"
+    private[this] val ContentType = "application/json"
     private[this] val Encoding = "UTF-8"
-    def content(r: Req) = r.setContentType(Typ, Encoding)
+    def content(r: Req) = r.setContentType(ContentType, Encoding)
     def str(jv: JValue) = compact(render(jv))
   }
 
-  case class Auth(
-    _user: String,
-    _password: String,
-    _email: String,
-    _server: String = "https://index.docker.io/v1/")
+  case class Auth(_cfg: AuthConfig)
     extends Client.Completion[Unit] {
-    def user(u: String) = copy(_user = u)
-    def password(pw: String) = copy(_password = pw)
-    def email(em: String) = copy(_email = em)
-    def server(svr: String) = copy(_server = svr)
-    def config(cfg: AuthConfig) = copy(
-      _user = cfg.user,
-      _password = cfg.password,
-      _email = cfg.email,
-      _server = cfg.server
+    def user(u: String) = config(
+      _cfg.copy(user = u)
     )
+    def password(pw: String) = config(
+      _cfg.copy(password = pw)
+    )
+    def email(em: String) = config(
+      _cfg.copy(email = em)
+    )
+    def server(svr: String) = config(
+      _cfg.copy(server = svr)
+    )
+    def config(cfg: AuthConfig) = copy(_cfg = cfg)
     def apply[T](handler: Client.Handler[T]) =
       request(json.content(host / "auth") <<
               json.str(
-                ("username" -> _user) ~
-                ("password" -> _password) ~
-                ("email" -> _email) ~
-                ("serveraddress" -> _server)))(handler)
+                ("username" -> _cfg.user) ~
+                ("password" -> _cfg.password) ~
+                ("email" -> _cfg.email) ~
+                ("serveraddress" -> _cfg.server)))(handler)
   }
 
   def auth(user: String, password: String, email: String): Auth =
-    Auth(user, password, email)
+    auth(AuthConfig(user, password, email))
 
-  def auth(cfg: AuthConfig): Auth =
-    Auth(cfg.user, cfg.password, cfg.email, cfg.password)
+  def auth(cfg: AuthConfig): Auth = Auth(cfg)
 
   object containers {
     private[this] def base = host / "containers"
@@ -68,7 +66,7 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
                (Map.empty[String, String]
-                ++ _all.map(("all" -> _.toString))
+                ++ _all.map(("all"       -> _.toString))
                 ++ _limit.map(("limit"   -> _.toString))
                 ++ _before.map(("before" -> _.toSeconds.toString))
                 ++ _since.map(("since"   -> _.toSeconds.toString))
@@ -86,6 +84,9 @@ trait Methods { self: Requests =>
       )
       def volumes(vx: String*) = config(
         _config.copy(volumes = vx.toSeq)
+      )
+      def cmd(args: String*) = config(
+        _config.copy(cmd = args.toSeq)
       )
       // todo: complete builder interface
       def apply[T](handler: Client.Handler[T]) =
@@ -128,7 +129,7 @@ trait Methods { self: Requests =>
       case class Start(_config: HostConfig)
         extends Client.Completion[Unit] {
         def config(cfg: HostConfig) = copy(_config = cfg)
-        def port(prt: String, binding: PortBinding*) = config(
+        def port(prt: Port, binding: PortBinding*) = config(
           _config.copy(ports = _config.ports + (prt -> binding.toList))
         )
         def links(lx: String*) = config(
@@ -145,7 +146,7 @@ trait Methods { self: Requests =>
           ("Privileged" -> _config.privileged) ~
           ("PortBindings" -> _config.ports.map {
             case (port, bindings) =>
-              (port -> bindings.map { binding =>
+              (port.spec -> bindings.map { binding =>
                 ("HostIp" -> binding.hostIp) ~
                 ("HostPort" -> binding.hostPort.toString)
               })

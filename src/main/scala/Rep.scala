@@ -4,13 +4,12 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
-case class Port(ip: String, priv: Int, pub: Int, typ: String)
+case class PortDesc(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
   id: String, image: String, cmd: String, created: Long, status: String,
-  ports: Seq[Port], names: Seq[String],
+  ports: Seq[PortDesc], names: Seq[String],
   sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
-
 
 object Create {
   case class Response(id : String, warnings: Seq[String])
@@ -52,7 +51,7 @@ case class ContainerState(
 // https://github.com/dotcloud/docker/blob/master/nat/nat.go#L19
 case class PortBinding(hostIp: String, hostPort: Int)
 case class NetworkSettings(
-  bridge: String, gateway: String, ipAddr: String, ipPrefixLen: Int, ports: Map[String, List[PortBinding]])
+  bridge: String, gateway: String, ipAddr: String, ipPrefixLen: Int, ports: Map[Port, List[PortBinding]])
 
 // https://github.com/dotcloud/docker/blob/v1.0.1/runconfig/hostconfig.go#L22
 case class HostConfig(
@@ -60,7 +59,7 @@ case class HostConfig(
   containerIdFile: String               = "",
   lxcConf: Seq[String]                  = Seq.empty,
   privileged: Boolean                   = false,
-  ports: Map[String, List[PortBinding]] = Map.empty,
+  ports: Map[Port, List[PortBinding]]   = Map.empty,
   links: Seq[String]                    = Seq.empty,
   publishAllPorts: Boolean              = false,
   dns: Seq[String]                      = Seq.empty,
@@ -123,7 +122,7 @@ object Rep {
         ("PrivatePort", JInt(priv)) <- port
         ("PublicPort", JInt(pub))   <- port
         ("Type", JString(typ))      <- port
-      } yield Port(ip, priv.toInt, pub.toInt, typ),
+      } yield PortDesc(ip, priv.toInt, pub.toInt, typ),
       for {
         ("Names", JArray(names)) <- cont
         JString(name)            <- names
@@ -167,8 +166,48 @@ object Rep {
       containerState(cont),
       img,
       containerNetworkSettings(cont),
-      resolveConfPath, Nil, HostConfig())).headOption
+      resolveConfPath, Nil,
+      containerHostConfig(cont))).headOption
     }
+
+    private def strs(v: JValue) = for {
+      JArray(strs) <- v
+      JString(str) <- strs
+    } yield str
+
+    private def containerHostConfig(cont: List[JField]) =
+      (for {
+        ("HostConfig", JObject(config))         <- cont
+        ("Binds", binds)                        <- config
+        ("ContainerIDFile", JString(idFile))    <- config
+        ("Dns", dns)                            <- config
+        ("DnsSearch", dnsSearch)                <- config
+        ("Links", links)                        <- config
+        ("LxcConf", lxcConf)                    <- config
+        ("NetworkMode", JString(netMode))       <- config
+        ("PortBindings", JObject(portBindings)) <- config
+        ("Privileged", JBool(priv))             <- config
+        ("PublishAllPorts", JBool(pubAllPorts)) <- config
+        ("VolumesFrom", volumesFrom)            <- config
+      } yield HostConfig(
+        strs(binds),
+        idFile,
+        strs(lxcConf),
+        priv,
+        (for {
+          (Port(port), bindings) <- portBindings        
+        } yield (port, (for {
+          JArray(xs)                      <- bindings
+          JObject(binding)                <- xs
+          ("HostIp", JString(hostIp))     <- binding
+          ("HostPort", JString(hostPort)) <- binding
+        } yield PortBinding(hostIp, hostPort.toInt)))).toMap,
+        strs(links),
+        pubAllPorts,
+        strs(dns),
+        strs(dnsSearch),
+        strs(volumesFrom),
+        netMode)).head
 
     private def containerNetworkSettings(cont: List[JField]) =
       (for {
@@ -179,7 +218,7 @@ object Rep {
         ("IPPrefixLen", JInt(prefLen))         <- settings
       } yield NetworkSettings(bridge, gateway, ip, prefLen.toInt, (for {
         ("Ports", JObject(ports)) <- settings
-        (port, mappings)          <- ports
+        (Port(port), mappings)          <- ports
       } yield {
         (port, (for {
           JArray(confs)                   <- mappings
