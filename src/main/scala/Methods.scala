@@ -201,8 +201,8 @@ trait Methods { self: Requests =>
         complete[List[Change]](base / id / "changes")
       
       // todo octet stream
-      def export[T](handler: Client.Handler[T]) =
-        request(base / id / "export")(handler)
+      def export(toFile: File) =
+        request(base / id / "export")(dispatch.as.File(toFile))
 
       def start = Start(HostConfig())
 
