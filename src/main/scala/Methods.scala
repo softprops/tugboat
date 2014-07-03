@@ -200,7 +200,6 @@ trait Methods { self: Requests =>
       def changes =
         complete[List[Change]](base / id / "changes")
       
-      // todo octet stream
       def export(toFile: File) =
         request(base / id / "export")(dispatch.as.File(toFile))
 
