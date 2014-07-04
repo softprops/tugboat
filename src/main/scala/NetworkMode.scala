@@ -1,7 +1,7 @@
 package tugboat
 
 sealed trait NetworkMode {
-  def value = getClass.getSimpleName.toLowerCase
+  def value = getClass.getSimpleName.toLowerCase.replace("""$""", "")
 }
 
 object NetworkMode {
