@@ -5,8 +5,7 @@ import dispatch.stream.Strings
 import java.io.File
 import org.json4s.JsonDSL._
 import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue }
-import org.json4s.native.JsonMethods.render
-import org.json4s.native.Printer.compact
+import org.json4s.native.JsonMethods.{ compact, render }
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
