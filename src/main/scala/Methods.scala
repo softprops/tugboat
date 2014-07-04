@@ -154,7 +154,7 @@ trait Methods { self: Requests =>
           ("PublishAllPorts" -> _config.publishAllPorts) ~
           ("Dns" -> Option(_config.dns).filter(_.nonEmpty)) ~
           ("DnsSearch" -> Option(_config.dnsSearch).filter(_.nonEmpty)) ~
-          ("NetworkMode" -> _config.networkMode) ~
+          ("NetworkMode" -> _config.networkMode.value) ~
           ("VolumesFrom" -> Option(_config.volumesFrom).filter(_.nonEmpty)))
       }
 

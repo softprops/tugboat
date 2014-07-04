@@ -65,12 +65,13 @@ case class HostConfig(
   dns: Seq[String]                      = Seq.empty,
   dnsSearch: Seq[String]                = Seq.empty,
   volumesFrom: Seq[String]              = Seq.empty,
-  networkMode: String                   = "bridge")
+  networkMode: NetworkMode              = NetworkMode.Bridge)
 
 case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
   args: Seq[String], config: ContainerConfig, state: ContainerState, image: String,
-  networkSettings: NetworkSettings, resolvConfPath: String, volumes: Seq[String], hostConfig: HostConfig)
+  networkSettings: NetworkSettings, resolvConfPath: String, volumes: Map[String, String],
+  volumesRW: Map[String, Boolean], hostConfig: HostConfig)
 
 case class Event(id: String, created: Long, createdBy: String, size: Long, tags: Seq[String])
 
@@ -166,7 +167,13 @@ object Rep {
       containerState(cont),
       img,
       containerNetworkSettings(cont),
-      resolveConfPath, Nil,
+      resolveConfPath, (for {
+        ("Volumes", JObject(volumes)) <- cont
+        (from, JString(to))           <- volumes
+      } yield (from, to)).toMap, (for {
+        ("VolumesRW", JObject(volumes)) <- cont
+        (vol, JBool(rw)) <- volumes
+      } yield (vol, rw)).toMap,
       containerHostConfig(cont))).headOption
     }
 
@@ -184,7 +191,6 @@ object Rep {
         ("DnsSearch", dnsSearch)                <- config
         ("Links", links)                        <- config
         ("LxcConf", lxcConf)                    <- config
-        ("NetworkMode", JString(netMode))       <- config
         ("PortBindings", JObject(portBindings)) <- config
         ("Privileged", JBool(priv))             <- config
         ("PublishAllPorts", JBool(pubAllPorts)) <- config
@@ -206,8 +212,9 @@ object Rep {
         pubAllPorts,
         strs(dns),
         strs(dnsSearch),
-        strs(volumesFrom),
-        netMode)).head
+        strs(volumesFrom), (for {
+          ("NetworkMode", JString(NetworkMode(netMode))) <- config
+        } yield netMode).headOption.getOrElse(NetworkMode.Bridge))).head
 
     private def containerNetworkSettings(cont: List[JField]) =
       (for {
