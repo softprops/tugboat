@@ -135,14 +135,14 @@ object Rep {
     )))
   }
 
-  implicit object CreateResponse extends Rep[Option[Create.Response]] {
+  implicit object CreateResponse extends Rep[Create.Response] {
     def map = { r => (for {
       JObject(resp)       <- as.json4s.Json(r)
       ("Id", JString(id)) <- resp
     } yield Create.Response(id, for {
       ("Warnings", JArray(warns)) <- resp
       JString(warn)               <- warns
-    } yield warn)).headOption }
+    } yield warn)).head }
   }
 
   implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {

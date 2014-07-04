@@ -75,7 +75,7 @@ trait Methods { self: Requests =>
     case class Create(
       _config: ContainerConfig,
       _name: Option[String] = None)
-      extends Client.Completion[Option[tugboat.Create.Response]] {
+      extends Client.Completion[tugboat.Create.Response] {
       def name(n: String) = copy(_name = Some(n))
       def config(cfg: ContainerConfig) = copy(_config = cfg)
       def image(img: String) = config(
@@ -234,9 +234,6 @@ trait Methods { self: Requests =>
 
     /** aka docker run */
     def create(image: String) = Create(ContainerConfig(image))
-
-    /** alias for crete */
-    def run = create _
 
     /** aka docker inspect */
     def get(id: String) = Container(id)
