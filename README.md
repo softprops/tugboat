@@ -69,7 +69,7 @@ tb.as(auth).images.pull("captain/ship").registry("internalregistry.com").stream 
             )()
 } yield container.id).onComplete(println)
 
-// produce a roster of ships out to see sea
+// produce a roster of ships out to sea
 tb.containers.list().map(_.map(_.id)).onComplete(println)
 
 // anchor to a live boat
