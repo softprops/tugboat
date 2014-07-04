@@ -68,6 +68,25 @@ tb.as(auth).images.pull("captain/ship").registry("internalregistry.com").stream 
                tugboat.Port.Tcp(80), tugboat.PortBinding("0.0.0.0", 80)
             )()
 } yield container.id).onComplete(println)
+
+// produce a roster of ships out to see sea
+tb.containers.list().map(_.map(_.id)).onComplete(println)
+
+// anchor to a live boat
+val ship = tb.containers.get(id)
+
+// inspect the boat
+ship().onComplete(println)
+
+// stop the boat after 5 seconds
+import scala.concurrent.duration._
+ship.stop(5.seconds)().onComplete(println)
+
+// restart the boat in 5 second
+ship.restart(5.seconds)().onComplete(println)
+
+// retire the ship
+ship.destroy.force(true)().onComplete(println)
 ```
 
 Doug Tangren (softprops) 2014
