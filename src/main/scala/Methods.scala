@@ -7,7 +7,7 @@ import org.json4s.JsonDSL._
 import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue }
 import org.json4s.native.JsonMethods.{ compact, render }
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 trait Methods { self: Requests =>
 
@@ -51,24 +51,24 @@ trait Methods { self: Requests =>
     private[this] def base = host / "containers"
 
     case class Containers(
-      _all: Option[Boolean]           = None,
-      _limit: Option[Int]             = None,
-      _since: Option[FiniteDuration]  = None,
-      _before: Option[FiniteDuration] = None,
-      _sizes: Option[Boolean]         = None)
+      _all: Option[Boolean]   = None,
+      _limit: Option[Int]     = None,
+      _since: Option[String]  = None,
+      _before: Option[String] = None,
+      _sizes: Option[Boolean] = None)
       extends Client.Completion[List[tugboat.Container]] {
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
-      def since(s: FiniteDuration) = copy(_since = Some(s))
-      def before(b: FiniteDuration) = copy(_before = Some(b))
+      def since(s: String) = copy(_since = Some(s))
+      def before(b: String) = copy(_before = Some(b))
       def sizes(include: Boolean) = copy(_sizes = Some(include))
       def apply[T](handler: Client.Handler[T]) =
         request(base / "json" <<?
                (Map.empty[String, String]
                 ++ _all.map(("all"       -> _.toString))
                 ++ _limit.map(("limit"   -> _.toString))
-                ++ _before.map(("before" -> _.toSeconds.toString))
-                ++ _since.map(("since"   -> _.toSeconds.toString))
+                ++ _before.map(("before" -> _))
+                ++ _since.map(("since"   -> _))
                 ++ _sizes.map(("size"    -> _.toString))))(handler)
     }    
 
@@ -204,10 +204,10 @@ trait Methods { self: Requests =>
 
       def start = Start(HostConfig())
 
-      def stop(after: Int = 0) =
+      def stop(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
 
-      def restart(after: Int = 0) =
+      def restart(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "restart" <<? Map("t" -> after.toString))
 
       def kill = Kill()
