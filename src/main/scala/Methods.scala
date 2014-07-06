@@ -135,9 +135,11 @@ trait Methods { self: Requests =>
         def bind(containerPort: Port, binding: PortBinding*) = config(
           _config.copy(ports = _config.ports + (containerPort -> binding.toList))
         )
+
         def links(lx: String*) = config(
           _config.copy(links = lx.toSeq)
         )
+
         // todo: complete builder interface
         def apply[T](handler: Client.Handler[T]) =
           request(json.content(base.POST) / id / "start" << bodyStr)(handler)
@@ -172,11 +174,23 @@ trait Methods { self: Requests =>
                   ++ _signal.map(("signal" -> _))))(handler)
       }
 
-      // todo: stream...
-      case class Logs()
-        extends Client.Completion[Unit] {
+      case class Logs(
+        _follow: Option[Boolean]     = None,
+        _stdout: Option[Boolean]     = None,
+        _stderr: Option[Boolean]     = None,
+        _timestamps: Option[Boolean] = None)
+        extends Client.Stream[String] {
+        def stdout(b: Boolean) = copy(_stdout = Some(b))
+        def stderr(b: Boolean) = copy(_stderr = Some(b))
+        def timestamps(ts: Boolean) = copy(_timestamps = Some(ts))
+        def follow(fol: Boolean) = copy(_follow = Some(fol))
         def apply[T](handler: Client.Handler[T]) =
-          request(base / id / "logs")(handler)
+          request(base / id / "logs" <<?
+                 (Map.empty[String, String]
+                  ++ _follow.map(("follow" -> _.toString))
+                  ++ _stdout.map(("stdout" -> _.toString))
+                  ++ _stderr.map(("stderr" -> _.toString))
+                  ++ _timestamps.map(("timestampes" -> _.toString))))(handler)
       }
 
       case class Delete(
