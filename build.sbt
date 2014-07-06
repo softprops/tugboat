@@ -4,9 +4,7 @@ name := "tugboat"
 
 version := "0.1.0-SNAPSHOT"
 
-scalacOptions += "-feature"
-
-crossScalaVersions += Seq("2.10.4", "2.11.1")
+crossScalaVersions ++= Seq("2.10.4", "2.11.1")
 
 scalaVersion := crossScalaVersions.value.last
 
