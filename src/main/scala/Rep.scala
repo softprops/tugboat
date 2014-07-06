@@ -50,6 +50,11 @@ case class ContainerState(
 
 // https://github.com/dotcloud/docker/blob/master/nat/nat.go#L19
 case class PortBinding(hostIp: String, hostPort: Int)
+// docker -p  format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort
+object PortBinding {
+  def local(port: Int) = PortBinding("0.0.0.0", port)
+}
+
 case class NetworkSettings(
   bridge: String, gateway: String, ipAddr: String, ipPrefixLen: Int, ports: Map[Port, List[PortBinding]])
 

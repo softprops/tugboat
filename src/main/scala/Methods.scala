@@ -128,8 +128,12 @@ trait Methods { self: Requests =>
       case class Start(_config: HostConfig)
         extends Client.Completion[Unit] {
         def config(cfg: HostConfig) = copy(_config = cfg)
-        def port(prt: Port, binding: PortBinding*) = config(
-          _config.copy(ports = _config.ports + (prt -> binding.toList))
+
+        // https://docs.docker.com/userguide/dockerlinks/
+        // docker -p  format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort
+
+        def bind(containerPort: Port, binding: PortBinding*) = config(
+          _config.copy(ports = _config.ports + (containerPort -> binding.toList))
         )
         def links(lx: String*) = config(
           _config.copy(links = lx.toSeq)

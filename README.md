@@ -64,8 +64,8 @@ tb.as(auth).images.pull("captain/ship").registry("internalregistry.com").stream 
 // fashion a new boat from a dependable stack of material and start the engines
 (for {
   container <- tb.containers.create("captain/ship")()
-  run       <- tb.containers.get(container.id).start.port(
-               tugboat.Port.Tcp(80), tugboat.PortBinding("0.0.0.0", 80)
+  run       <- tb.containers.get(container.id).start.bind(
+               tugboat.Port.Tcp(80), tugboat.PortBinding.local(80)
             )()
 } yield container.id).onComplete(println)
 
