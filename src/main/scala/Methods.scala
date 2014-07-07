@@ -319,7 +319,6 @@ trait Methods { self: Requests =>
       extends Client.Completion[Option[ImageDetails]] {
 
       // todo: stream rep
-      // todo: x-registry-auth
       case class Push(
         _registry: Option[String] = None)
         extends Client.Stream[Unit] {
@@ -351,7 +350,7 @@ trait Methods { self: Requests =>
       case class Delete(
         _force: Option[Boolean]   = None,
         _noprune: Option[Boolean] = None)
-        extends Client.Stream[Unit] {
+        extends Client.Stream[String] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Client.Handler[T]) =
