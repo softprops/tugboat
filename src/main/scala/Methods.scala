@@ -190,7 +190,7 @@ trait Methods { self: Requests =>
                   ++ _follow.map(("follow" -> _.toString))
                   ++ _stdout.map(("stdout" -> _.toString))
                   ++ _stderr.map(("stderr" -> _.toString))
-                  ++ _timestamps.map(("timestampes" -> _.toString))))(handler)
+                  ++ _timestamps.map(("timestamps" -> _.toString))))(handler)
       }
 
       case class Delete(

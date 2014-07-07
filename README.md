@@ -78,6 +78,9 @@ val ship = tb.containers.get(id)
 // inspect the boat
 ship().onComplete(println)
 
+// fetch the the captains logs
+ship.logs.follow(true).stdout(true).stderr(true).stream(println)
+
 // stop the boat after 5 seconds
 import scala.concurrent.duration._
 ship.stop(5.seconds)().onComplete(println)
