@@ -12,7 +12,7 @@ case class Container(
   sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
 
 object Create {
-  case class Response(id : String, warnings: Seq[String])
+  case class Response(id: String, warnings: Seq[String])
 }
 
 case class ContainerConfig(
@@ -91,7 +91,7 @@ case class Image(
   repoTags: List[String] = Nil, parent: Option[String] = None)
 
 case class ImageDetails(
-  id: String, created: String, container: String, size: Long, parent: Option[String] = None)
+  id: String, created: String, container: String, size: Long, parent: Option[String], config: ContainerConfig)
 
 case class SearchResult(
   name: String, description: String, trusted: Boolean, official: Boolean, stars: Int)
@@ -167,8 +167,9 @@ object Rep {
       id, name, created, path, hostsPath, hostnamePath, for {
         ("Args", JArray(args)) <- cont
         JString(arg)           <- args
-      } yield arg,
-      containerConfig(cont),
+      } yield arg, (for {
+        ("Config", JObject(cfg)) <- cont
+      } yield containerConfig(cfg)).head,
       containerState(cont),
       img,
       containerNetworkSettings(cont),
@@ -252,9 +253,8 @@ object Rep {
       } yield ContainerState(
         run, pause, pid.toInt, exit.toInt, started, fin)).head
 
-    private def containerConfig(cont: List[JField]) =
+    def containerConfig(cfg: List[JField]) =
       (for {
-        ("Config", JObject(cfg))           <- cont
         ("Image", JString(img))            <- cfg
         ("AttachStderr", JBool(atStdErr))  <- cfg
         ("AttachStdin", JBool(atStdIn))    <- cfg
@@ -347,14 +347,22 @@ object Rep {
   }
 
   implicit object ImageDetail extends Rep[Option[ImageDetails]] {
-    def map = { r => (for {
-      JObject(img) <- as.json4s.Json(r)
-      ("Id", JString(id)) <- img
-      ("Created", JString(created)) <- img
-      ("Container", JString(container)) <- img
-      ("Size", JInt(size)) <- img
-    } yield ImageDetails(
-      id, created, container, size.toLong)).headOption
+    def map = { r =>
+      (for {
+        JObject(img)                      <- as.json4s.Json(r)
+        ("Id", JString(id))               <- img
+        ("Created", JString(created))     <- img
+        ("Container", JString(container)) <- img
+        ("Size", JInt(size))              <- img
+      } yield ImageDetails(
+        id, created, container, size.toLong,
+        (for {
+          ("Parent", JString(parent)) <- img
+        } yield parent).headOption,
+        (for {
+          ("ContainerConfig", JObject(cfg)) <- img
+        } yield ContainerDetail.containerConfig(cfg)).head)
+      ).headOption
     }
   }
 }
