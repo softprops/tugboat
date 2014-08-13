@@ -330,7 +330,12 @@ object Rep {
         ("Size", JInt(size))         <- img
         ("VirtualSize", JInt(vsize)) <- img
       } yield tugboat.Image(
-        id, created.toLong, size.toLong, vsize.toLong)))
+        id, created.toLong, size.toLong, vsize.toLong, for {
+          ("RepoTags", JArray(tags)) <- img
+          JString(tag) <- tags
+        } yield tag, (for {
+          ("ParentId", JString(parent)) <- img
+        } yield parent).headOption)))
   }
 
   implicit object ListOfSearchResults extends Rep[List[SearchResult]] {

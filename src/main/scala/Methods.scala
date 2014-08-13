@@ -19,7 +19,7 @@ trait Methods { self: Requests =>
   }
 
   case class Auth(_cfg: AuthConfig)
-    extends Client.Completion[Unit] {
+    extends Client.Completion[Unit] { // fixme: better rep
     def user(u: String) = config(
       _cfg.copy(user = u)
     )
@@ -126,7 +126,7 @@ trait Methods { self: Requests =>
       extends Client.Completion[Option[ContainerDetails]] {
 
       case class Start(_config: HostConfig)
-        extends Client.Completion[Unit] {
+        extends Client.Completion[Unit] { // fixme: better rep
         def config(cfg: HostConfig) = copy(_config = cfg)
 
         // https://docs.docker.com/userguide/dockerlinks/
@@ -166,7 +166,7 @@ trait Methods { self: Requests =>
 
       case class Kill(
         _signal: Option[String] = None)
-        extends Client.Completion[Unit] {
+        extends Client.Completion[Unit] { // fixme: better rep
         def signal(sig: String) = copy(_signal = Some(sig))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "kill" <<?
@@ -321,7 +321,7 @@ trait Methods { self: Requests =>
       // todo: stream rep
       case class Push(
         _registry: Option[String] = None)
-        extends Client.Stream[Unit] {
+        extends Client.Stream[tugboat.Push.Output] {
         def registry(reg: String) = copy(_registry = Some(reg))
         def apply[T](handler: Client.Handler[T]) =
           request(base.POST / id / "push" <:<

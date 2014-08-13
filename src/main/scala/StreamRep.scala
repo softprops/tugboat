@@ -18,6 +18,12 @@ object Pull {
   case class Error(message: String, details: String) extends Output 
 }
 
+object Push {
+  sealed trait Output
+  case class Status(message: String) extends Output
+  case class Error(message: String, defaults: String) extends Output
+}
+
 /** type class for default representations of streamed output */
 sealed trait StreamRep[T] {
   def map: String => T
@@ -50,6 +56,24 @@ object StreamRep {
 
       progress.orElse(err).get
     } 
+  }
+
+  implicit object PushOutputs extends StreamRep[Push.Output] {
+    def map = { str =>
+      val JObject(obj) = parse(str)
+      def status = (for {
+        ("status", JString(msg)) <- obj
+      } yield Push.Status(msg)).headOption
+
+      def err = (for {
+        ("error", JString(msg))          <- obj
+        ("errorDetail", JObject(detail)) <- obj
+        ("message", JString(details))    <- detail
+      } yield Push.Error(
+        msg, details)).headOption
+
+      status.orElse(err).get
+    }
   }
 
   implicit object PullOutputs extends StreamRep[Pull.Output] {

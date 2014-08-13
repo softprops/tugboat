@@ -1,7 +1,7 @@
 package tugboat
 
 import com.ning.http.client.{ AsyncHandler, Response }
-import dispatch.{ FunctionHandler, Http, Req,  url, :/ }
+import dispatch.{ OkFunctionHandler, Http, Req,  url, :/ }
 import dispatch.stream.StringsByLine
 import java.net.URI
 import scala.concurrent.{ ExecutionContext, Future }
@@ -24,7 +24,7 @@ object Client {
     /** @return a future transformed by Response => T*/
     def apply[T]
       (f: Response => T): Future[T] =
-        apply(new FunctionHandler(f))
+        apply(new OkFunctionHandler(f))
   }
 
   /** extension of completer providing a default rep of the items within
