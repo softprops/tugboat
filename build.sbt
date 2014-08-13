@@ -13,7 +13,7 @@ scalacOptions in ThisBuild ++= Seq(Opts.compile.deprecation) ++
     Function.const(scalaVersion.value.startsWith("2.11")))
 
 libraryDependencies ++= Seq(
-  "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.1",
+  "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.2",
   "org.kamranzafar" % "jtar" % "2.2")
 
 initialCommands := "import scala.concurrent.ExecutionContext.Implicits.global; val tb = tugboat.Client()"
