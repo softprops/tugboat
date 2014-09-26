@@ -48,8 +48,7 @@ trait Methods { self: Requests =>
   def auth(cfg: AuthConfig): Auth = Auth(cfg)
 
   object containers {
-    private[this] def base = host / "containers"
-
+    private[this] def base = host / "containers"    
     case class Containers(
       _all: Option[Boolean]   = None,
       _limit: Option[Int]     = None,
@@ -74,10 +73,11 @@ trait Methods { self: Requests =>
 
     case class Create(
       _config: ContainerConfig,
-      _name: Option[String] = None)
+      _name: Option[String] = None,
+      _restartPolicy: Option[RestartPolicy] = None)
       extends Client.Completion[tugboat.Create.Response] {
       def name(n: String) = copy(_name = Some(n))
-      def config(cfg: ContainerConfig) = copy(_config = cfg)
+      def config(cfg: ContainerConfig) = copy(_config = cfg)      
       def image(img: String) = config(
         _config.copy(image = img)
       )
@@ -86,6 +86,9 @@ trait Methods { self: Requests =>
       )
       def cmd(args: String*) = config(
         _config.copy(cmd = args.toSeq)
+      )
+      def restartPolicy(p: RestartPolicy) = copy(
+        _restartPolicy = Some(p)
       )
       // todo: complete builder interface
       def apply[T](handler: Client.Handler[T]) =
@@ -119,7 +122,10 @@ trait Methods { self: Requests =>
         ("Volumes"         -> _config.volumes.map { vol =>
           (vol, JObject())
         }) ~
-        ("WorkingDir"      -> _config.workingDir))
+        ("WorkingDir"      -> _config.workingDir) ~
+        ("RestartPolicy"   -> _restartPolicy.map { policy =>
+          ("Name" -> policy.name)
+        }))
     }
 
     case class Container(id: String)
