@@ -146,6 +146,14 @@ trait Methods { self: Requests =>
           _config.copy(links = lx.toSeq)
         )
 
+        def capAdd(caps: String*) = config(
+          _config.copy(capAdd = caps.toSeq)
+        )
+
+        def capDrop(caps: String*) = config(
+          _config.copy(capDrop = caps.toSeq)
+        )
+
         // todo: complete builder interface
         def apply[T](handler: Client.Handler[T]) =
           request(json.content(base.POST) / id / "start" << bodyStr)(handler)
@@ -167,7 +175,9 @@ trait Methods { self: Requests =>
           ("Dns" -> Option(_config.dns).filter(_.nonEmpty)) ~
           ("DnsSearch" -> Option(_config.dnsSearch).filter(_.nonEmpty)) ~
           ("NetworkMode" -> _config.networkMode.value) ~
-          ("VolumesFrom" -> Option(_config.volumesFrom).filter(_.nonEmpty)))
+          ("VolumesFrom" -> Option(_config.volumesFrom).filter(_.nonEmpty)) ~
+          ("CapAdd" -> Option(_config.capAdd).filter(_.nonEmpty)) ~
+          ("CapDrop" -> Option(_config.capDrop).filter(_.nonEmpty)))
       }
 
       case class Kill(

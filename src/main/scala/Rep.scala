@@ -70,7 +70,9 @@ case class HostConfig(
   dns: Seq[String]                      = Seq.empty,
   dnsSearch: Seq[String]                = Seq.empty,
   volumesFrom: Seq[String]              = Seq.empty,
-  networkMode: NetworkMode              = NetworkMode.Bridge)
+  networkMode: NetworkMode              = NetworkMode.Bridge,
+  capAdd: Seq[String]                   = Seq.empty,
+  capDrop: Seq[String]                 = Seq.empty)
 
 case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
@@ -220,7 +222,14 @@ object Rep {
         strs(dnsSearch),
         strs(volumesFrom), (for {
           ("NetworkMode", JString(NetworkMode(netMode))) <- config
-        } yield netMode).headOption.getOrElse(NetworkMode.Bridge))).head
+        } yield netMode).headOption.getOrElse(NetworkMode.Bridge),
+        for {
+          ("CapAdd", adds) <- config
+          str <- strs(adds)
+        } yield str, for {
+          ("CapDrop", drops) <- config
+          str <- strs(drops)
+        } yield str)).head
 
     private def containerNetworkSettings(cont: List[JField]) =
       (for {
