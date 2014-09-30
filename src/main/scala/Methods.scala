@@ -52,11 +52,11 @@ trait Methods { self: Requests =>
   object containers {
     private[this] def base = host / "containers"    
     case class Containers(
-      _all: Option[Boolean]   = None,
-      _limit: Option[Int]     = None,
-      _since: Option[String]  = None,
-      _before: Option[String] = None,
-      _sizes: Option[Boolean] = None)
+      private val _all: Option[Boolean]   = None,
+      private val _limit: Option[Int]     = None,
+      private val _since: Option[String]  = None,
+      private val _before: Option[String] = None,
+      private val _sizes: Option[Boolean] = None)
       extends Client.Completion[List[tugboat.Container]] {
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
@@ -74,9 +74,9 @@ trait Methods { self: Requests =>
     }    
 
     case class Create(
-      _config: ContainerConfig,
-      _name: Option[String] = None,
-      _restartPolicy: Option[RestartPolicy] = None)
+      private val _config: ContainerConfig,
+      private val _name: Option[String] = None,
+      private val _restartPolicy: Option[RestartPolicy] = None)
       extends Client.Completion[tugboat.Create.Response] {
       def name(n: String) = copy(_name = Some(n))
       def config(cfg: ContainerConfig) = copy(_config = cfg)      
@@ -193,10 +193,10 @@ trait Methods { self: Requests =>
       }
 
       case class Logs(
-        _follow: Option[Boolean]     = None,
-        _stdout: Option[Boolean]     = None,
-        _stderr: Option[Boolean]     = None,
-        _timestamps: Option[Boolean] = None)
+        private val _follow: Option[Boolean]     = None,
+        private val _stdout: Option[Boolean]     = None,
+        private val _stderr: Option[Boolean]     = None,
+        private val _timestamps: Option[Boolean] = None)
         extends Client.Stream[String] {
         def stdout(b: Boolean) = copy(_stdout = Some(b))
         def stderr(b: Boolean) = copy(_stderr = Some(b))
@@ -212,8 +212,8 @@ trait Methods { self: Requests =>
       }
 
       case class Delete(
-        _volumes: Option[Boolean] = None,
-        _force: Option[Boolean]   = None)
+        private val _volumes: Option[Boolean] = None,
+        private val _force: Option[Boolean]   = None)
         extends Client.Completion[Unit] {
         def volumes(v: Boolean) = copy(_volumes = Some(v))
         def force(f: Boolean) = copy(_force = Some(f))
@@ -279,8 +279,8 @@ trait Methods { self: Requests =>
     private[this] def base = host / "images"
 
     case class Images(
-      _all: Option[Boolean]                       = None,
-      _filters: Option[Map[String, List[String]]] =  None)
+      private val _all: Option[Boolean]                       = None,
+      private val _filters: Option[Map[String, List[String]]] =  None)
       extends Client.Completion[List[tugboat.Image]] {
       def all = copy(_all = Some(true))
       def filters(fs: Map[String, List[String]]) = copy(_filters = Some(fs))
@@ -296,13 +296,12 @@ trait Methods { self: Requests =>
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
     case class Pull(
-      _fromImage: String,
-      _fromSrc: Option[String]   = None,
-      _repo: Option[String]      = None,
-      _tag: Option[String]       = None,
-      _registry: Option[String]  = None)
+      private val _fromImage: String,
+      private val _fromSrc: Option[String]   = None,
+      private val _repo: Option[String]      = None,
+      private val _tag: Option[String]       = None,
+      private _registry: Option[String]  = None)
       extends Client.Stream[tugboat.Pull.Output] {
-
       override protected def streamer = { f =>
         /** Like StringsByLine doesn't buffer. The images/create response
          *  returns chunked encoding by with a no explicit terminator for
@@ -322,6 +321,7 @@ trait Methods { self: Requests =>
       def fromImage(img: String) = copy(_fromImage = img)
       def fromSrc(src: String) = copy(_fromSrc = Some(src))
       def repo(r: String) = copy(_repo = Some(r))
+      // if fromImage includes a tag, foobar:tag, this is not needed
       def tag(t: String) = copy(_tag = Some(t))
       def registry(r: String) = copy(_registry = Some(r))      
       def apply[T](handler: Client.Handler[T]) =
@@ -366,8 +366,8 @@ trait Methods { self: Requests =>
 
       // todo: stream rep
       case class Delete(
-        _force: Option[Boolean]   = None,
-        _noprune: Option[Boolean] = None)
+        private val _force: Option[Boolean]   = None,
+        private val _noprune: Option[Boolean] = None)
         extends Client.Stream[String] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
@@ -396,7 +396,7 @@ trait Methods { self: Requests =>
     }
 
     case class Search(
-      _term: Option[String] = None)
+      private val _term: Option[String] = None)
       extends Client.Completion[List[SearchResult]] {
       def term(t: String) = copy(_term = Some(t))
       def apply[T](handler: Client.Handler[T]) =
