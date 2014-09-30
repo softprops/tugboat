@@ -6,6 +6,7 @@ import org.json4s._
 object Build {
   sealed trait Output
   case class Progress(message: String) extends Output
+  case class Status(message: String) extends Output
   case class Error(message: String, code: Int, details: String) extends Output
 }
 
@@ -42,6 +43,10 @@ object StreamRep {
     def map = { str =>
       val JObject(obj) = parse(str)
 
+      def status = (for {
+        ("status", JString(status)) <- obj
+      } yield Build.Status(status)).headOption
+
       def progress = (for {
         ("stream", JString(msg)) <- obj
       } yield Build.Progress(msg)).headOption
@@ -54,13 +59,14 @@ object StreamRep {
       } yield Build.Error(
         msg, code.toInt, details)).headOption
 
-      progress.orElse(err).get
+      progress.orElse(status).orElse(err).get
     } 
   }
 
   implicit object PushOutputs extends StreamRep[Push.Output] {
     def map = { str =>
       val JObject(obj) = parse(str)
+
       def status = (for {
         ("status", JString(msg)) <- obj
       } yield Push.Status(msg)).headOption
