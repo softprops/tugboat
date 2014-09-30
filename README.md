@@ -17,6 +17,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 // create a docker tugboat client
 val tb = tugboat.Client()
 
+// print the make and model of docker harbor
+// $ docker version
+tb.version().onComplete(println)
+
 // search the sea of docker images for something that looks like a ship
 // $ docker search ship
 tb.images.search.term("ship")().map(_.map(_.name)).onComplete(println)
