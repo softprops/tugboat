@@ -300,7 +300,7 @@ trait Methods { self: Requests =>
       private val _fromSrc: Option[String]   = None,
       private val _repo: Option[String]      = None,
       private val _tag: Option[String]       = None,
-      private _registry: Option[String]  = None)
+      private val _registry: Option[String]  = None)
       extends Client.Stream[tugboat.Pull.Output] {
       override protected def streamer = { f =>
         /** Like StringsByLine doesn't buffer. The images/create response
