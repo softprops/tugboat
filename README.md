@@ -36,6 +36,7 @@ tb.images.list().map(_.map(_.id)).onComplete(println)
 import tugboat.Build 
 tb.images.build(new java.io.File("path/to/dir/Dockerfile/is/in")).tag("ssScala").stream {
   case Build.Progress(prog)   => println(prog)
+  case Build.Status(status)   => println(status)
   case Build.Error(err, _, _) => println(err)
 }
 
