@@ -42,6 +42,8 @@ trait Methods { self: Requests =>
                 ("serveraddress" -> _cfg.server)))(handler)
   }
 
+  def version = complete[Version](host / "version")
+
   def auth(user: String, password: String, email: String): Auth =
     auth(AuthConfig(user, password, email))
 
@@ -309,7 +311,7 @@ trait Methods { self: Requests =>
          *  in a single pack of body part bytes. I don't like this but
          *  until docker documents this better, this should work in most cases.
          */
-        new Strings[Unit] {
+        new Strings[Unit] with Client.StreamErrorHandler[Unit] {
           def onString(str: String) {
             f(implicitly[StreamRep[tugboat.Pull.Output]].map(str.trim))
           }
@@ -404,11 +406,11 @@ trait Methods { self: Requests =>
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#build-an-image-from-dockerfile-via-stdin */
     case class Build(
       path: File,
-      _tag: Option[String]      = None,
-      _q: Option[Boolean]       = None,
-      _nocache: Option[Boolean] = None,
-      _rm: Option[Boolean]      = None,
-      _forcerm: Option[Boolean] = None)
+      private val _tag: Option[String]      = None,
+      private val _q: Option[Boolean]       = None,
+      private val _nocache: Option[Boolean] = None,
+      private val _rm: Option[Boolean]      = None,
+      private val _forcerm: Option[Boolean] = None)
       extends Client.Stream[tugboat.Build.Output] {
       lazy val tarfile = if (path.isDirectory) {
         Tar(path, TmpFile.create, path.getName, zip = true)
