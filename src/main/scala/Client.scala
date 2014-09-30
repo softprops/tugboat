@@ -1,14 +1,24 @@
 package tugboat
 
-import com.ning.http.client.{ AsyncHandler, Response }
-import dispatch.{ OkFunctionHandler, Http, Req,  url, :/ }
+import com.ning.http.client.{ AsyncHandler, HttpResponseStatus, Response }
+import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.StringsByLine
 import java.net.URI
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
 
 object Client {
+  case class Error(code: Int, message: String) extends RuntimeException(message)
+
   type Handler[T] = AsyncHandler[T]
+
+  private[tugboat] trait StreamErrorHandler[T] extends AsyncHandler[T] { self: AsyncHandler[T] =>
+    abstract override def onStatusReceived(status: HttpResponseStatus) =
+      if (status.getStatusCode / 100 == 2)
+        super.onStatusReceived(status)
+      else
+        throw Error(status.getStatusCode, "")
+  }
 
   /** mixin used for uniform request handler completion */
   trait Completer {
@@ -24,7 +34,14 @@ object Client {
     /** @return a future transformed by Response => T*/
     def apply[T]
       (f: Response => T): Future[T] =
-        apply(new OkFunctionHandler(f))
+        apply(new FunctionHandler(f) {
+          override def onCompleted(response: Response) = {
+            if (response.getStatusCode / 100 == 2) f(response)
+            else throw Error(
+              response.getStatusCode,
+              if (response.hasResponseBody) response.getResponseBody else "")
+          }
+        })
   }
 
   /** extension of completer providing a default rep of the items within
@@ -38,7 +55,7 @@ object Client {
     /** @return a function that takes a function to apply to each chunk of a response
      *          and produces a handler for the request's response */
     protected def streamer: Handler => Client.Handler[Unit] = { f =>
-      new StringsByLine[Unit] {
+      new StringsByLine[Unit] with StreamErrorHandler[Unit] {
         def onStringBy(str: String) {
           f(implicitly[StreamRep[T]].map(str))
         }
@@ -82,6 +99,7 @@ abstract class Requests(
     }
 }
 
+/** Entry point into docker communication */
 case class Client(
   hostStr: String = Client.DefaultHost,
   private val http: Http = new Http,
