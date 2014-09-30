@@ -4,6 +4,8 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
+case class Version(apiVersion: String, version: String, gitCommit: String, goVersion: String)
+
 case class PortDesc(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
@@ -110,6 +112,18 @@ object Rep {
 
   implicit object Nada extends Rep[Unit] {
     def map = _ => ()
+  }
+
+  implicit object Versions extends Rep[Version] {
+    def map = { r =>
+      (for {
+        JObject(version) <- as.json4s.Json(r)
+        ("ApiVersion", JString(api)) <- version
+        ("Version", JString(ver))    <- version
+        ("GitCommit", JString(git))  <- version
+        ("GoVersion", JString(go))   <- version
+      } yield Version(api, ver, git, go)).head
+    }
   }
 
   implicit object ListOfContainers extends Rep[List[Container]] {
