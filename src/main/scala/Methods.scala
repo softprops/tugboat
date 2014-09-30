@@ -422,8 +422,8 @@ trait Methods { self: Requests =>
       def rm(r: Boolean) = copy(_rm = Some(r))
       def forceRm(r: Boolean) = copy(_forcerm = Some(r))
       def apply[T](handler: Client.Handler[T]) =
-        request((host.POST <:< Map(
-                "Content-Type" -> "application/x-tar",
+        request((host.POST / "build" <:< Map(
+                "Content-Type" -> "application/tar",
                 "Content-Encoding" -> "gzip") ++ authConfig.map(
                   ("X-Registry-Auth" -> _.headerValue)
                  ) <<?
@@ -433,7 +433,7 @@ trait Methods { self: Requests =>
                  ++ _nocache.map(("nocache" -> _.toString))
                  ++ _rm.map(("rm" -> _.toString))
                  ++ _forcerm.map(("forcerm" -> _.toString)))
-                <<< tarfile) / "build")(handler)
+                <<< tarfile))(handler)
     }
 
     def list = Images()
