@@ -4,7 +4,22 @@ import com.ning.http.client.Response
 import dispatch.as
 import org.json4s._
 
-case class Version(apiVersion: String, version: String, gitCommit: String, goVersion: String)
+case class Version(
+  apiVersion: String,
+  version: String,
+  gitCommit: String,
+  goVersion: String)
+
+case class Info(
+  containers: Int,
+  images: Int,
+  driver: String,
+  executionDriver: String,
+  kernelVersion: String,
+  debug: Int, nFd: Int,
+  nGoroutines: Int, nEventsListener: Int,
+  initPath: String, indexServerAddr: String,
+  memoryLimit: Int, swapLimit: Int, ipv4Forwarding: Int)
 
 case class PortDesc(ip: String, priv: Int, pub: Int, typ: String)
 
@@ -106,15 +121,15 @@ sealed trait Rep[T] {
 }
 
 object Rep {
-  implicit object Identity extends Rep[Response] {
+  implicit val Identity: Rep[Response] = new Rep[Response] {
     def map = identity(_)
   }
 
-  implicit object Nada extends Rep[Unit] {
+  implicit val Nada: Rep[Unit] = new Rep[Unit] {
     def map = _ => ()
   }
 
-  implicit object Versions extends Rep[Version] {
+  implicit val Versions: Rep[Version] = new Rep[Version] {
     def map = { r =>
       (for {
         JObject(version) <- as.json4s.Json(r)
@@ -126,7 +141,32 @@ object Rep {
     }
   }
 
-  implicit object ListOfContainers extends Rep[List[Container]] {
+  implicit val Infos: Rep[Info] = new Rep[Info] {
+    def map = { r =>
+      (for {
+        JObject(info) <- as.json4s.Json(r)
+        ("Containers", JInt(cont)) <- info
+        ("Images", JInt(images)) <- info
+        ("Driver", JString(driver)) <- info
+        ("ExecutionDriver", JString(exDriver)) <- info
+        ("KernelVersion", JString(kVersion)) <- info
+        ("Debug", JInt(debug)) <- info
+        ("NFd", JInt(nfd)) <- info
+        ("NGoroutines", JInt(ngor)) <- info
+        ("NEventsListener", JInt(nevl)) <- info
+        ("InitPath", JString(initpath)) <- info
+        ("IndexServerAddress", JString(indexSvrAddr)) <- info
+        ("MemoryLimit", JInt(memLim)) <- info
+        ("SwapLimit", JInt(swapLim)) <- info
+        ("IPv4Forwarding", JInt(ipv4)) <- info
+      } yield Info(
+        cont.toInt, images.toInt, driver, exDriver, kVersion,
+        debug.toInt, nfd.toInt, ngor.toInt, nevl.toInt, initpath,
+        indexSvrAddr, memLim.toInt, swapLim.toInt, ipv4.toInt)).head
+    }
+  }
+
+  implicit val ListOfContainers: Rep[List[Container]] = new Rep[List[Container]] {
     def map = (as.json4s.Json andThen (for {
       JArray(containers)         <- _
       JObject(cont)              <- containers
@@ -156,7 +196,7 @@ object Rep {
     )))
   }
 
-  implicit object CreateResponse extends Rep[Create.Response] {
+  implicit val CreateResponse: Rep[Create.Response] = new Rep[Create.Response] {
     def map = { r => (for {
       JObject(resp)       <- as.json4s.Json(r)
       ("Id", JString(id)) <- resp
@@ -300,7 +340,7 @@ object Rep {
         } yield (k, v)).toMap)).head
   }
 
-  implicit object ListOfEvents extends Rep[List[Event]] {
+  implicit val ListOfEvents: Rep[List[Event]] = new Rep[List[Event]] {
     def map = (as.json4s.Json andThen (for {
       JArray(events)              <- _
       JObject(event)              <- events
@@ -314,7 +354,7 @@ object Rep {
     } yield tag)))
   }
 
-  implicit object Tops extends Rep[Top] {
+  implicit val Tops: Rep[Top] = new Rep[Top] {
     def map = { r => (for {
      JObject(top)                 <- as.json4s.Json(r)
      ("Titles", JArray(titles))   <- top
@@ -327,7 +367,7 @@ object Rep {
     }
   }
 
-  implicit object ListOfChanges extends Rep[List[Change]] {
+  implicit val ListOfChanges: Rep[List[Change]] = new Rep[List[Change]] {
     def map = (as.json4s.Json andThen (for {
       JArray(changes) <- _
       JObject(change) <- changes
@@ -336,7 +376,7 @@ object Rep {
     } yield Change(path, kind.toInt)))
   }
 
-  implicit object StatusCode extends Rep[Status] {
+  implicit val StatusCode: Rep[Status] = new Rep[Status] {
     def map = { r => (for {
       JObject(status)            <- as.json4s.Json(r)
       ("StatusCode", JInt(code)) <- status
@@ -344,7 +384,7 @@ object Rep {
    }
   }
 
-  implicit object ListOfImages extends Rep[List[Image]] {
+  implicit val ListOfImages: Rep[List[Image]] = new Rep[List[Image]] {
     def map = (as.json4s.Json andThen (for {
         JArray(imgs)                 <- _
         JObject(img)                 <- imgs
@@ -361,7 +401,7 @@ object Rep {
         } yield parent).headOption)))
   }
 
-  implicit object ListOfSearchResults extends Rep[List[SearchResult]] {
+  implicit val ListOfSearchResults: Rep[List[SearchResult]] = new Rep[List[SearchResult]] {
     def map = (as.json4s.Json andThen (for {
         JArray(results)                <- _
         JObject(res)                   <- results
@@ -374,7 +414,7 @@ object Rep {
         name, desc, trust, offic, stars.toInt)))
   }
 
-  implicit object ImageDetail extends Rep[Option[ImageDetails]] {
+  implicit val ImageDetail: Rep[Option[ImageDetails]] = new Rep[Option[ImageDetails]] {
     def map = { r =>
       (for {
         JObject(img)                      <- as.json4s.Json(r)

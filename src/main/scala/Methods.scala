@@ -44,6 +44,10 @@ trait Methods { self: Requests =>
 
   def version = complete[Version](host / "version")
 
+  def info = complete[Info](host / "info")
+
+  def ping = complete[Unit](host / "_ping")
+
   def auth(user: String, password: String, email: String): Auth =
     auth(AuthConfig(user, password, email))
 
@@ -452,7 +456,9 @@ trait Methods { self: Requests =>
                 <<< tarfile))(handler)
     }
 
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-images */
     def list = Images()
+
     // the api calls this create by the default client calls this pull
     // pull seems more `intention revealing` so let's use that
     def pull(image: String) = Pull(image)
