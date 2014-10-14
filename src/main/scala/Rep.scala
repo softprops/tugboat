@@ -39,7 +39,7 @@ case class ContainerConfig(
   attachStderr: Boolean     = false,
   cmd: Seq[String]          = Seq.empty,
   cpuShares: Int            = 0,
-  cpuSet: String           = "",
+  cpuSet: String            = "",
   domainName: String        = "",
   entryPoint: Seq[String]   = Seq.empty,
   env: Map[String, String]  = Map.empty,
@@ -146,12 +146,12 @@ object Rep {
       (for {
         JObject(info) <- as.json4s.Json(r)
         ("Containers", JInt(cont)) <- info
-        ("Images", JInt(images)) <- info
-        ("Driver", JString(driver)) <- info
+        ("Images", JInt(images))               <- info
+        ("Driver", JString(driver))            <- info
         ("ExecutionDriver", JString(exDriver)) <- info
-        ("KernelVersion", JString(kVersion)) <- info
-        ("Debug", JInt(debug)) <- info
-        ("NFd", JInt(nfd)) <- info
+        ("KernelVersion", JString(kVersion))   <- info
+        ("Debug", JInt(debug))                 <- info
+        ("NFd", JInt(nfd))                     <- info
         ("NGoroutines", JInt(ngor)) <- info
         ("NEventsListener", JInt(nevl)) <- info
         ("InitPath", JString(initpath)) <- info

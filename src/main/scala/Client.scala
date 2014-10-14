@@ -27,7 +27,7 @@ object Client {
   }
 
   /** extension of completer providing a default rep of response */
-  abstract class Completion[T: Rep] extends Completer {
+  abstract class Completion[T: Rep](implicit ec: ExecutionContext) extends Completer {
     /** @return a future of the default representation of the response */
     def apply(): Future[T] =
       apply(implicitly[Rep[T]].map)
@@ -41,7 +41,10 @@ object Client {
               response.getStatusCode,
               if (response.hasResponseBody) response.getResponseBody else "")
           }
-        })
+        }).recoverWith {
+          case ee: java.util.concurrent.ExecutionException =>
+            Future.failed(ee.getCause)
+        }
   }
 
   /** extension of completer providing a default rep of the items within
@@ -76,7 +79,7 @@ object Client {
 abstract class Requests(
   hostStr: String, http: Http,
   protected val authConfig: Option[AuthConfig])
- (implicit ec: ExecutionContext)
+ (protected implicit val ec: ExecutionContext)
   extends Methods {
 
   def host = url(hostStr)

@@ -1,8 +1,10 @@
 package tugboat
 
+import com.ning.http.client.generators.InputStreamBodyGenerator
 import dispatch.{ as, Req }
 import dispatch.stream.Strings
-import java.io.File
+import dispatch.stream.StringsByLine
+import java.io.{ File, PipedInputStream, PipedOutputStream, InputStream, OutputStream }
 import org.json4s.JsonDSL._
 import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue }
 import org.json4s.native.JsonMethods.{ compact, render }
@@ -82,28 +84,90 @@ trait Methods { self: Requests =>
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#create-a-container */
     case class Create(
       private val _config: ContainerConfig,
-      private val _name: Option[String] = None,
+      private val _name: Option[String]                 = None,
       private val _restartPolicy: Option[RestartPolicy] = None)
       extends Client.Completion[tugboat.Create.Response] {
+
       def name(n: String) = copy(_name = Some(n))
-      def config(cfg: ContainerConfig) = copy(_config = cfg)      
-      def image(img: String) = config(
-        _config.copy(image = img)
-      )
-      def volumes(vx: String*) = config(
-        _config.copy(volumes = vx.toSeq)
-      )
-      def cmd(args: String*) = config(
-        _config.copy(cmd = args.toSeq)
-      )
+
+      def config(cfg: ContainerConfig) = copy(_config = cfg)
+
+      def withConfig(f: ContainerConfig => ContainerConfig) =
+        config(f(_config))
+
+      def image(img: String) =
+        withConfig(_.copy(image = img))
+
+      def attachStdin(in: Boolean) =
+        withConfig(_.copy(attachStdin = in))
+
+      def attachStdout(out: Boolean) =
+        withConfig(_.copy(attachStdout = out))
+
+      def attachStderr(err: Boolean) =
+        withConfig(_.copy(attachStderr = err))
+
+      def cmd(args: String*) =
+        withConfig(_.copy(cmd = args.toSeq))
+
+      def cpuShares(cpu: Int) =
+        withConfig(_.copy(cpuShares = cpu))
+
+      def cpuSet(set: String) =
+        withConfig(_.copy(cpuSet = set))
+
+      def domainName(name: String) =
+        withConfig(_.copy(domainName = name))
+
+      def entryPoint(ep: String*) =
+        withConfig(_.copy(entryPoint = ep.toSeq))
+
+      def env(vars: (String, String)*) =
+        withConfig(_.copy(env = vars.toMap))
+
+      // todo: types!
+      def exposedPorts(ports: String*) =
+        withConfig(_.copy(exposedPorts = ports.toSeq))
+
+      def hostname(name: String) =
+        withConfig(_.copy(hostname = name))
+
+      def memory(mem: Long) =
+        withConfig(_.copy(memory = mem))
+
+      def memorySwap(swap: Long) =
+        withConfig(_.copy(memorySwap = swap))
+
+      def networkDisabled(dis: Boolean) =
+        withConfig(_.copy(networkDisabled = dis))
+
+      def openStdin(in: Boolean) =
+        withConfig(_.copy(openStdin = in))
+
+      def stdinOnce(once: Boolean) =
+        withConfig(_.copy(stdinOnce = once))
+
+      def user(u: String) =
+        withConfig(_.copy(user = u))
+
+      def tty(is: Boolean) =
+        withConfig(_.copy(tty = is))
+
+      def volumes(vx: String*) =
+        withConfig(_.copy(volumes = vx.toSeq))
+
+      def workingDir(dir: String) =
+        withConfig(_.copy(workingDir = dir))
+        
       def restartPolicy(p: RestartPolicy) = copy(
         _restartPolicy = Some(p)
       )
-      // todo: complete builder interface
+
       def apply[T](handler: Client.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
                 (Map.empty[String, String]
-                 ++ _name.map(("name" -> _))) << bodyStr)(handler)
+                 ++ _name.map(("name" -> _)))
+                << bodyStr)(handler)
 
       // config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L213
       // host config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L236
@@ -238,17 +302,22 @@ trait Methods { self: Requests =>
       def apply[T](handler: Client.Handler[T]) =
         request(base / id / "json")(handler)
 
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-processes-running-inside-a-container */
       def top(args: String = "") =
         complete[Top](base / id / "top" <<? Map("ps_args" -> args))
       
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-container-logs */
       def logs = Logs()
 
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-changes-on-a-containers-filesystem */
       def changes =
         complete[List[Change]](base / id / "changes")
       
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#export-a-container */
       def export(toFile: File) =
         request(base / id / "export")(dispatch.as.File(toFile))
 
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#start-a-container */
       def start = Start(HostConfig())
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#stop-a-container */
@@ -262,14 +331,57 @@ trait Methods { self: Requests =>
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#kill-a-container */
       def kill = Kill()
 
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#pause-a-container */
+      def pause =
+        complete[Unit](base.POST / id / "pause")
+
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#unpause-a-container */
+      def unpause =
+        complete[Unit](base.POST / id / "unpause")
+
       // todo multiple std in/out
-      def attach[T](handler: Client.Handler[T]) =
-        request(base.POST / id / "attach")(handler)
+      case class Attach(
+        private val _logs: Option[Boolean]   = None,
+        private val _stream: Option[Boolean] = None,
+        private val _stdin: Option[Boolean]  = None,
+        private val _stdout: Option[Boolean] = None,
+        private val _stderr: Option[Boolean] = None) {
+        def logs(l: Boolean) = copy(_logs = Some(l))
+        def stream(s: Boolean) = copy(_stream = Some(s))
+        def stdin(s: Boolean) = copy(_stdin = Some(s))
+        def stdout(s: Boolean) = copy(_stdout = Some(s))
+        def stderr(s: Boolean) = copy(_stderr = Some(s))
+
+        private def req =
+          (base.POST / id / "attach"
+           <<? Map.empty[String, String]
+           ++ _logs.map(("logs"     -> _.toString))
+           ++ _stream.map(("stream" -> _.toString))
+           ++ _stdin.map(("stdin"   -> _.toString))
+           ++ _stdout.map(("stdout" -> _.toString))
+           ++ _stderr.map(("stderr" -> _.toString)))
+
+        /** todo: consider processIO https://github.com/scala/scala/blob/v2.11.2/src/library/scala/sys/process/ProcessIO.scala#L1 */
+        def apply(in: OutputStream => Unit, out: String => Unit = _ => ()) = {
+          val os = new PipedOutputStream()
+          val is = new PipedInputStream(os)
+          in(os)
+          request(req.subject.underlying(_.setBody(new InputStreamBodyGenerator(is))))(
+            new StringsByLine[Unit] with Client.StreamErrorHandler[Unit] {
+              def onStringBy(str: String) = out(str)
+              def onCompleted = ()
+            })
+        }
+      }
+
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#attach-to-a-container */
+      //def attach = Attach()
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#wait-a-container */
       def await =
         complete[Status](base.POST / id / "wait")
 
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#remove-a-container */
       def delete = Delete()
 
       // todo: octet stream
