@@ -15,7 +15,7 @@ It's up to your application to decide how to deal with the result of a future.
 import scala.concurrent.ExecutionContext.Implicits.global
 
 // create a docker tugboat client
-val tb = tugboat.Client()
+val tb = tugboat.Docker()
 
 // print the make and model of docker harbor
 // $ docker version

@@ -21,7 +21,7 @@ trait Methods { self: Requests =>
   }
 
   case class Auth(_cfg: AuthConfig)
-    extends Client.Completion[Unit] { // fixme: better rep
+    extends Docker.Completion[Unit] { // fixme: better rep
     def user(u: String) = config(
       _cfg.copy(user = u)
     )
@@ -35,7 +35,7 @@ trait Methods { self: Requests =>
       _cfg.copy(server = svr)
     )
     def config(cfg: AuthConfig) = copy(_cfg = cfg)
-    def apply[T](handler: Client.Handler[T]) =
+    def apply[T](handler: Docker.Handler[T]) =
       request(json.content(host / "auth") <<
               json.str(
                 ("username" -> _cfg.user) ~
@@ -65,13 +65,13 @@ trait Methods { self: Requests =>
       private val _since: Option[String]  = None,
       private val _before: Option[String] = None,
       private val _sizes: Option[Boolean] = None)
-      extends Client.Completion[List[tugboat.Container]] {
+      extends Docker.Completion[List[tugboat.Container]] {
       def all = copy(_all = Some(true))
       def limit(lim: Int) = copy(_limit = Some(lim))
       def since(s: String) = copy(_since = Some(s))
       def before(b: String) = copy(_before = Some(b))
       def sizes(include: Boolean) = copy(_sizes = Some(include))
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(base / "json" <<?
                (Map.empty[String, String]
                 ++ _all.map(("all"       -> _.toString))
@@ -86,7 +86,7 @@ trait Methods { self: Requests =>
       private val _config: ContainerConfig,
       private val _name: Option[String]                 = None,
       private val _restartPolicy: Option[RestartPolicy] = None)
-      extends Client.Completion[tugboat.Create.Response] {
+      extends Docker.Completion[tugboat.Create.Response] {
 
       def name(n: String) = copy(_name = Some(n))
 
@@ -163,7 +163,7 @@ trait Methods { self: Requests =>
         _restartPolicy = Some(p)
       )
 
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(json.content(base.POST) / "create" <<?
                 (Map.empty[String, String]
                  ++ _name.map(("name" -> _)))
@@ -202,11 +202,11 @@ trait Methods { self: Requests =>
     }
 
     case class Container(id: String)
-      extends Client.Completion[Option[ContainerDetails]] {
+      extends Docker.Completion[Option[ContainerDetails]] {
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#start-a-container */
       case class Start(_config: HostConfig)
-        extends Client.Completion[Unit] { // fixme: better rep
+        extends Docker.Completion[Unit] { // fixme: better rep
         def config(cfg: HostConfig) = copy(_config = cfg)
 
         // https://docs.docker.com/userguide/dockerlinks/
@@ -229,7 +229,7 @@ trait Methods { self: Requests =>
         )
 
         // todo: complete builder interface
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(json.content(base.POST) / id / "start" << bodyStr)(handler)
 
         def bodyStr = json.str(
@@ -257,9 +257,9 @@ trait Methods { self: Requests =>
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#kill-a-container */
       case class Kill(
         _signal: Option[String] = None)
-        extends Client.Completion[Unit] { // fixme: better rep
+        extends Docker.Completion[Unit] { // fixme: better rep
         def signal(sig: String) = copy(_signal = Some(sig))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "kill" <<?
                  (Map.empty[String, String]
                   ++ _signal.map(("signal" -> _))))(handler)
@@ -271,12 +271,12 @@ trait Methods { self: Requests =>
         private val _stdout: Option[Boolean]     = None,
         private val _stderr: Option[Boolean]     = None,
         private val _timestamps: Option[Boolean] = None)
-        extends Client.Stream[String] {
+        extends Docker.Stream[String] {
         def stdout(b: Boolean) = copy(_stdout = Some(b))
         def stderr(b: Boolean) = copy(_stderr = Some(b))
         def timestamps(ts: Boolean) = copy(_timestamps = Some(ts))
         def follow(fol: Boolean) = copy(_follow = Some(fol))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base / id / "logs" <<?
                  (Map.empty[String, String]
                   ++ _follow.map(("follow" -> _.toString))
@@ -288,10 +288,10 @@ trait Methods { self: Requests =>
       case class Delete(
         private val _volumes: Option[Boolean] = None,
         private val _force: Option[Boolean]   = None)
-        extends Client.Completion[Unit] {
+        extends Docker.Completion[Unit] {
         def volumes(v: Boolean) = copy(_volumes = Some(v))
         def force(f: Boolean) = copy(_force = Some(f))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.DELETE / id <<?
                  (Map.empty[String, String]
                   ++ _volumes.map(("v" -> _.toString))
@@ -299,7 +299,7 @@ trait Methods { self: Requests =>
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-a-container */
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-processes-running-inside-a-container */
@@ -367,7 +367,7 @@ trait Methods { self: Requests =>
           val is = new PipedInputStream(os)
           in(os)
           request(req.subject.underlying(_.setBody(new InputStreamBodyGenerator(is))))(
-            new StringsByLine[Unit] with Client.StreamErrorHandler[Unit] {
+            new StringsByLine[Unit] with Docker.StreamErrorHandler[Unit] {
               def onStringBy(str: String) = out(str)
               def onCompleted = ()
             })
@@ -386,8 +386,8 @@ trait Methods { self: Requests =>
 
       // todo: octet stream
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#copy-files-or-folders-from-a-container */
-     /* def cp(resource: String) = new Client.Stream[Unit] {
-        def apply[T](handler: Client.Handler[T]) =
+     /* def cp(resource: String) = new Docker.Stream[Unit] {
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "copy")(handler)
       }*/
     }
@@ -408,12 +408,12 @@ trait Methods { self: Requests =>
     case class Images(
       private val _all: Option[Boolean]                       = None,
       private val _filters: Option[Map[String, List[String]]] =  None)
-      extends Client.Completion[List[tugboat.Image]] {
+      extends Docker.Completion[List[tugboat.Image]] {
       def all = copy(_all = Some(true))
       def filters(fs: Map[String, List[String]]) = copy(_filters = Some(fs))
       // ( aka untagged ) for convenience
       def dangling(dang: Boolean) = filters(Map("dangling" -> (dang.toString :: Nil)))
-      def apply[T](handler: Client.Handler[T]) = {
+      def apply[T](handler: Docker.Handler[T]) = {
         request(base / "json" <<?
                (Map.empty[String, String]
                 ++ _all.map(("all" -> _.toString)))
@@ -428,7 +428,7 @@ trait Methods { self: Requests =>
       private val _repo: Option[String]      = None,
       private val _tag: Option[String]       = None,
       private val _registry: Option[String]  = None)
-      extends Client.Stream[tugboat.Pull.Output] {
+      extends Docker.Stream[tugboat.Pull.Output] {
       override protected def streamer = { f =>
         /** Like StringsByLine doesn't buffer. The images/create response
          *  returns chunked encoding by with a no explicit terminator for
@@ -437,7 +437,7 @@ trait Methods { self: Requests =>
          *  in a single pack of body part bytes. I don't like this but
          *  until docker documents this better, this should work in most cases.
          */
-        new Strings[Unit] with Client.StreamErrorHandler[Unit] {
+        new Strings[Unit] with Docker.StreamErrorHandler[Unit] {
           def onString(str: String) {
             f(implicitly[StreamRep[tugboat.Pull.Output]].map(str.trim))
           }
@@ -451,7 +451,7 @@ trait Methods { self: Requests =>
       // if fromImage includes a tag, foobar:tag, this is not needed
       def tag(t: String) = copy(_tag = Some(t))
       def registry(r: String) = copy(_registry = Some(r))      
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(base.POST / "create" <<?
                (Map("fromImage" -> _fromImage)
                 ++ _fromSrc.map(("fromSrc" -> _))
@@ -461,14 +461,14 @@ trait Methods { self: Requests =>
     }
 
     case class Image(id: String)
-      extends Client.Completion[Option[ImageDetails]] {
+      extends Docker.Completion[Option[ImageDetails]] {
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#push-an-image-on-the-registry */
       case class Push(
         _registry: Option[String] = None)
-        extends Client.Stream[tugboat.Push.Output] {
+        extends Docker.Stream[tugboat.Push.Output] {
         def registry(reg: String) = copy(_registry = Some(reg))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "push" <:<
                  (Map.empty[String, String]
                   ++ authConfig.map(
@@ -482,10 +482,10 @@ trait Methods { self: Requests =>
       case class Tag(
         _repo: Option[String]   = None,
         _force: Option[Boolean] = None)
-        extends Client.Completion[Unit] {
+        extends Docker.Completion[Unit] {
         def repo(r: String) = copy(_repo = Some(r))
         def force(f: Boolean) = copy(_force = Some(f))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "tag" <<?
                  (Map.empty[String, String]
                   ++ _repo.map(("repo" -> _))
@@ -497,10 +497,10 @@ trait Methods { self: Requests =>
       case class Delete(
         private val _force: Option[Boolean]   = None,
         private val _noprune: Option[Boolean] = None)
-        extends Client.Stream[String] {
+        extends Docker.Stream[String] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
-        def apply[T](handler: Client.Handler[T]) =
+        def apply[T](handler: Docker.Handler[T]) =
           request(base.DELETE / id <<?
                  (Map.empty[String, String]
                   ++ _force.map(("force" -> _.toString))
@@ -508,7 +508,7 @@ trait Methods { self: Requests =>
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-an-image */
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-the-history-of-an-image */
@@ -529,9 +529,9 @@ trait Methods { self: Requests =>
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#search-images */
     case class Search(
       private val _term: Option[String] = None)
-      extends Client.Completion[List[SearchResult]] {
+      extends Docker.Completion[List[SearchResult]] {
       def term(t: String) = copy(_term = Some(t))
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
     }
 
@@ -543,7 +543,7 @@ trait Methods { self: Requests =>
       private val _nocache: Option[Boolean] = None,
       private val _rm: Option[Boolean]      = None,
       private val _forcerm: Option[Boolean] = None)
-      extends Client.Stream[tugboat.Build.Output] {
+      extends Docker.Stream[tugboat.Build.Output] {
       lazy val tarfile = if (path.isDirectory) {
         Tar(path, TmpFile.create, path.getName, zip = true)
       } else path
@@ -553,7 +553,7 @@ trait Methods { self: Requests =>
       def nocache(n: Boolean) = copy(_nocache = Some(n))
       def rm(r: Boolean) = copy(_rm = Some(r))
       def forceRm(r: Boolean) = copy(_forcerm = Some(r))
-      def apply[T](handler: Client.Handler[T]) =
+      def apply[T](handler: Docker.Handler[T]) =
         request((host.POST / "build" <:< Map(
                 "Content-Type" -> "application/tar",
                 "Content-Encoding" -> "gzip") ++ authConfig.map(

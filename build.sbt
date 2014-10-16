@@ -4,6 +4,8 @@ name := "tugboat"
 
 version := "0.1.0-SNAPSHOT"
 
+description := "a small boat that maneuvers docker vessels"
+
 crossScalaVersions ++= Seq("2.10.4", "2.11.1")
 
 scalaVersion := crossScalaVersions.value.last
