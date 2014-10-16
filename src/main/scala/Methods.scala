@@ -50,6 +50,9 @@ trait Methods { self: Requests =>
 
   def ping = complete[Unit](host / "_ping")
 
+  // todo: from/since
+  def events() = stream[Event.Status](host / "events")
+
   def auth(user: String, password: String, email: String): Auth =
     auth(AuthConfig(user, password, email))
 
@@ -512,7 +515,7 @@ trait Methods { self: Requests =>
         request(base / id / "json")(handler)
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-the-history-of-an-image */
-      def history = complete[List[Event]](base / id / "history")
+      def history = complete[List[Record]](base / id / "history")
 
       // todo insert stream
       def insert(url: String, path: String) =

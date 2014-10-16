@@ -97,7 +97,7 @@ case class ContainerDetails(
   networkSettings: NetworkSettings, resolvConfPath: String, volumes: Map[String, String],
   volumesRW: Map[String, Boolean], hostConfig: HostConfig)
 
-case class Event(id: String, created: Long, createdBy: String, size: Long, tags: Seq[String])
+case class Record(id: String, created: Long, createdBy: String, size: Long, tags: Seq[String])
 
 case class Top(titles: Seq[String], procs: Seq[Seq[String]])
 
@@ -340,7 +340,7 @@ object Rep {
         } yield (k, v)).toMap)).head
   }
 
-  implicit val ListOfEvents: Rep[List[Event]] = new Rep[List[Event]] {
+  implicit val ListOfRecord: Rep[List[Record]] = new Rep[List[Record]] {
     def map = (as.json4s.Json andThen (for {
       JArray(events)              <- _
       JObject(event)              <- events
@@ -348,7 +348,7 @@ object Rep {
       ("Created", JInt(created))  <- event
       ("CreatedBy", JString(by))  <- event
       ("Size", JInt(size))        <- event
-    } yield Event(id, created.toLong, by, size.toLong, for {
+    } yield Record(id, created.toLong, by, size.toLong, for {
       ("Tags", JArray(tags)) <- event
       JString(tag)           <- tags
     } yield tag)))

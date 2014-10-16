@@ -31,6 +31,13 @@ tb.images.list().map(_.map(_.id)).onComplete(println)
 
 // be your own shipping port
 
+// keep an close eye on activity in your harbor
+import tugboat.Event
+tb.events().stream {
+  case Event.Status(status, id, from, time) =>
+     println(s"container $id: $status")
+}
+
 // usher a ship out to sea
 // $ docker build -t ssScala path/to/dir/Dockerfile/is/in
 import tugboat.Build 

@@ -3,6 +3,10 @@ package tugboat
 import org.json4s.native.JsonMethods.parse
 import org.json4s._
 
+object Event {
+  case class Status(status: String, id: String, from: String, time: Long)  
+}
+
 object Build {
   sealed trait Output
   case class Progress(message: String) extends Output
@@ -31,15 +35,30 @@ sealed trait StreamRep[T] {
 }
 
 object StreamRep {
-  implicit object Identity extends StreamRep[String] {
-    def map = identity(_)
-  }
+  implicit val Identity: StreamRep[String] =
+    new StreamRep[String] {
+      def map = identity(_)
+    }
 
-  implicit object Nada extends StreamRep[Unit] {
-    def map = _ => ()
-  }
+  implicit val Nada: StreamRep[Unit] =
+    new StreamRep[Unit] {
+      def map = _ => ()
+    }
 
-  implicit object BuildOutputs extends StreamRep[Build.Output] {
+  implicit val StreamEvents: StreamRep[Event.Status] =
+    new StreamRep[Event.Status] {
+      def map = { str =>
+        (for {
+          JObject(event)              <- parse(str)
+          ("status", JString(status)) <- event
+          ("id", JString(id))         <- event
+          ("from", JString(from))     <- event
+          ("time", JInt(time))        <- event
+        } yield Event.Status(status, id, from, time.toLong)).head
+      }
+    }
+
+  implicit val BuildOutputs: StreamRep[Build.Output] = new StreamRep[Build.Output] {
     def map = { str =>
       val JObject(obj) = parse(str)
 
@@ -63,7 +82,7 @@ object StreamRep {
     } 
   }
 
-  implicit object PushOutputs extends StreamRep[Push.Output] {
+  implicit val PushOutputs: StreamRep[Push.Output] = new StreamRep[Push.Output] {
     def map = { str =>
       val JObject(obj) = parse(str)
 
