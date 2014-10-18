@@ -4,7 +4,7 @@ import org.json4s.native.JsonMethods.parse
 import org.json4s._
 
 object Event {
-  case class Status(status: String, id: String, from: String, time: Long)  
+  case class Record(status: String, id: String, from: String, time: Long)
 }
 
 object Build {
@@ -45,16 +45,17 @@ object StreamRep {
       def map = _ => ()
     }
 
-  implicit val StreamEvents: StreamRep[Event.Status] =
-    new StreamRep[Event.Status] {
+  implicit val StreamEvents: StreamRep[Event.Record] =
+    new StreamRep[Event.Record] {
       def map = { str =>
         (for {
-          JObject(event)              <- parse(str)
-          ("status", JString(status)) <- event
-          ("id", JString(id))         <- event
-          ("from", JString(from))     <- event
-          ("time", JInt(time))        <- event
-        } yield Event.Status(status, id, from, time.toLong)).head
+          JObject(r)                  <- parse(str)
+          ("status", JString(status)) <- r
+          ("id", JString(id))         <- r
+          ("from", JString(from))     <- r
+          ("time", JInt(time))        <- r
+        } yield Event.Record(
+          status, id, from, time.toLong * 1000)).head
       }
     }
 

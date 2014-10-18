@@ -33,8 +33,8 @@ tb.images.list().map(_.map(_.id)).onComplete(println)
 
 // keep an close eye on activity in your harbor
 import tugboat.Event
-tb.events().stream {
-  case Event.Status(status, id, from, time) =>
+tb.events.stream {
+  case Event.Record(status, id, from, time) =>
      println(s"container $id: $status")
 }
 

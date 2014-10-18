@@ -44,14 +44,35 @@ trait Methods { self: Requests =>
                 ("serveraddress" -> _cfg.server)))(handler)
   }
 
+  case class Events(
+    _since: Option[Long] = None,
+    _until: Option[Long] = None)
+    extends Docker.Stream[Event.Record] {
+    def since(s: Long) = copy(_since = Some(s))
+    def until(u: Long) = copy(_until = Some(u))
+    def apply[T](handler: Docker.Handler[T]) =
+      request(host / "events" <<?
+              (Map.empty[String, String]
+               ++ _since.map( s => ("since"   -> (s / 1000).toString))
+               ++ _until.map( u => ("until"   -> (u / 1000).toString))))(handler)
+
+    override protected def streamer = { f =>
+      new Strings[Unit] with Docker.StreamErrorHandler[Unit] {
+        def onString(str: String) {
+          f(implicitly[StreamRep[Event.Record]].map(str.trim))
+        }
+        def onCompleted = ()
+      }
+    }
+  }
+
   def version = complete[Version](host / "version")
 
   def info = complete[Info](host / "info")
 
   def ping = complete[Unit](host / "_ping")
 
-  // todo: from/since
-  def events() = stream[Event.Status](host / "events")
+  def events = Events()
 
   def auth(user: String, password: String, email: String): Auth =
     auth(AuthConfig(user, password, email))
