@@ -58,10 +58,12 @@ trait Methods { self: Requests =>
     def since(s: Long) = copy(_since = Some(s))
     def until(u: Long) = copy(_until = Some(u))
     def apply[T](handler: Docker.Handler[T]) =
-      request(host / "events" <<?
-              (Map.empty[String, String]
-               ++ _since.map( s => ("since"   -> (s / 1000).toString))
-               ++ _until.map( u => ("until"   -> (u / 1000).toString))))(handler)
+      request(host / "events" <<? query)(handler)
+
+    def query = (
+      Map.empty[String, String]
+        ++ _since.map( s => ("since"   -> (s / 1000).toString))
+        ++ _until.map( u => ("until"   -> (u / 1000).toString)))
 
     override protected def streamer = { f =>
       new Strings[Unit] with Docker.StreamErrorHandler[Unit] {
@@ -103,13 +105,15 @@ trait Methods { self: Requests =>
       def before(b: String) = copy(_before = Some(b))
       def sizes(include: Boolean) = copy(_sizes = Some(include))
       def apply[T](handler: Docker.Handler[T]) =
-        request(base / "json" <<?
-               (Map.empty[String, String]
-                ++ _all.map(("all"       -> _.toString))
-                ++ _limit.map(("limit"   -> _.toString))
-                ++ _before.map(("before" -> _))
-                ++ _since.map(("since"   -> _))
-                ++ _sizes.map(("size"    -> _.toString))))(handler)
+        request(base / "json" <<? query)(handler)
+
+      def query = (
+        Map.empty[String, String]
+          ++ _all.map(("all"       -> _.toString))
+          ++ _limit.map(("limit"   -> _.toString))
+          ++ _before.map(("before" -> _))
+          ++ _since.map(("since"   -> _))
+          ++ _sizes.map(("size"    -> _.toString)))
     }    
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#create-a-container */
@@ -195,10 +199,11 @@ trait Methods { self: Requests =>
       )
 
       def apply[T](handler: Docker.Handler[T]) =
-        request(json.content(base.POST) / "create" <<?
-                (Map.empty[String, String]
-                 ++ _name.map(("name" -> _)))
+        request(json.content(base.POST) / "create"
+                <<? query
                 << body)(handler)
+
+      def query = Map.empty[String, String] ++ _name.map(("name" -> _))
 
       // config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L213
       // host config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L236
@@ -289,11 +294,14 @@ trait Methods { self: Requests =>
       case class Kill(
         _signal: Option[String] = None)
         extends Docker.Completion[Unit] { // fixme: better rep
+
         def signal(sig: String) = copy(_signal = Some(sig))
+
         def apply[T](handler: Docker.Handler[T]) =
-          request(base.POST / id / "kill" <<?
-                 (Map.empty[String, String]
-                  ++ _signal.map(("signal" -> _))))(handler)
+          request(base.POST / id / "kill"
+                  <<? query)(handler)
+
+         def query = Map.empty[String, String] ++ _signal.map(("signal" -> _))
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-container-logs */
@@ -303,17 +311,24 @@ trait Methods { self: Requests =>
         private val _stderr: Option[Boolean]     = None,
         private val _timestamps: Option[Boolean] = None)
         extends Docker.Stream[String] {
+
         def stdout(b: Boolean) = copy(_stdout = Some(b))
+
         def stderr(b: Boolean) = copy(_stderr = Some(b))
+
         def timestamps(ts: Boolean) = copy(_timestamps = Some(ts))
+
         def follow(fol: Boolean) = copy(_follow = Some(fol))
+
         def apply[T](handler: Docker.Handler[T]) =
-          request(base / id / "logs" <<?
-                 (Map.empty[String, String]
-                  ++ _follow.map(("follow" -> _.toString))
-                  ++ _stdout.map(("stdout" -> _.toString))
-                  ++ _stderr.map(("stderr" -> _.toString))
-                  ++ _timestamps.map(("timestamps" -> _.toString))))(handler)
+          request(base / id / "logs" <<? query)(handler)
+
+         def query = (
+           Map.empty[String, String]
+             ++ _follow.map(("follow" -> _.toString))
+             ++ _stdout.map(("stdout" -> _.toString))
+             ++ _stderr.map(("stderr" -> _.toString))
+             ++ _timestamps.map(("timestamps" -> _.toString)))
       }
 
       case class Delete(
@@ -323,10 +338,12 @@ trait Methods { self: Requests =>
         def volumes(v: Boolean) = copy(_volumes = Some(v))
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Docker.Handler[T]) =
-          request(base.DELETE / id <<?
-                 (Map.empty[String, String]
-                  ++ _volumes.map(("v" -> _.toString))
-                  ++ _force.map(("force" -> _.toString))))(handler)
+          request(base.DELETE / id <<? query)(handler)
+
+        def query = (
+          Map.empty[String, String]
+            ++ _volumes.map(("v" -> _.toString))
+            ++ _force.map(("force" -> _.toString)))
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-a-container */
@@ -384,13 +401,15 @@ trait Methods { self: Requests =>
         def stderr(s: Boolean) = copy(_stderr = Some(s))
 
         private def req =
-          (base.POST / id / "attach"
-           <<? Map.empty[String, String]
-           ++ _logs.map(("logs"     -> _.toString))
-           ++ _stream.map(("stream" -> _.toString))
-           ++ _stdin.map(("stdin"   -> _.toString))
-           ++ _stdout.map(("stdout" -> _.toString))
-           ++ _stderr.map(("stderr" -> _.toString)))
+          base.POST / id / "attach" <<? query
+
+         def query = (
+           Map.empty[String, String]
+             ++ _logs.map(("logs"     -> _.toString))
+             ++ _stream.map(("stream" -> _.toString))
+             ++ _stdin.map(("stdin"   -> _.toString))
+             ++ _stdout.map(("stdout" -> _.toString))
+             ++ _stderr.map(("stderr" -> _.toString)))
 
         /** todo: consider processIO https://github.com/scala/scala/blob/v2.11.2/src/library/scala/sys/process/ProcessIO.scala#L1 */
         def apply(in: OutputStream => Unit, out: String => Unit = _ => ()) = {
@@ -444,12 +463,14 @@ trait Methods { self: Requests =>
       def filters(fs: Map[String, List[String]]) = copy(_filters = Some(fs))
       // ( aka untagged ) for convenience
       def dangling(dang: Boolean) = filters(Map("dangling" -> (dang.toString :: Nil)))
-      def apply[T](handler: Docker.Handler[T]) = {
-        request(base / "json" <<?
-               (Map.empty[String, String]
-                ++ _all.map(("all" -> _.toString)))
-                ++ _filters.map("filters" -> json.str(_)))(handler)
-      }
+
+      def apply[T](handler: Docker.Handler[T]) =
+        request(base / "json" <<? query)(handler)
+
+      def query = (
+        Map.empty[String, String]
+          ++ _all.map(("all" -> _.toString))
+          ++ _filters.map("filters" -> json.str(_)))
     }
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
@@ -483,12 +504,14 @@ trait Methods { self: Requests =>
       def tag(t: String) = copy(_tag = Some(t))
       def registry(r: String) = copy(_registry = Some(r))      
       def apply[T](handler: Docker.Handler[T]) =
-        request(base.POST / "create" <<?
-               (Map("fromImage" -> _fromImage)
-                ++ _fromSrc.map(("fromSrc" -> _))
-                ++ _repo.map(("repo" -> _))
-                ++ _tag.map(("tag" -> _))
-                ++ _registry.map(("registry" -> _))))(handler)
+        request(base.POST / "create" <<? query)(handler)
+
+       def query = (
+         Map("fromImage" -> _fromImage)
+           ++ _fromSrc.map(("fromSrc" -> _))
+           ++ _repo.map(("repo" -> _))
+           ++ _tag.map(("tag" -> _))
+           ++ _registry.map(("registry" -> _)))
     }
 
     case class Image(id: String)
@@ -517,10 +540,12 @@ trait Methods { self: Requests =>
         def repo(r: String) = copy(_repo = Some(r))
         def force(f: Boolean) = copy(_force = Some(f))
         def apply[T](handler: Docker.Handler[T]) =
-          request(base.POST / id / "tag" <<?
-                 (Map.empty[String, String]
-                  ++ _repo.map(("repo" -> _))
-                  ++ _force.map(("force" -> _.toString))))(handler)
+          request(base.POST / id / "tag" <<? query)(handler)
+
+        def query = (
+          Map.empty[String, String]
+            ++ _repo.map(("repo" -> _))
+            ++ _force.map(("force" -> _.toString)))
       }
        
       // todo: stream rep
@@ -532,10 +557,12 @@ trait Methods { self: Requests =>
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Docker.Handler[T]) =
-          request(base.DELETE / id <<?
-                 (Map.empty[String, String]
-                  ++ _force.map(("force" -> _.toString))
-                  ++ _noprune.map(("noprune" -> _.toString))))(handler)
+          request(base.DELETE / id <<? query)(handler)
+
+        def query = (
+          Map.empty[String, String]
+            ++ _force.map(("force" -> _.toString))
+            ++ _noprune.map(("noprune" -> _.toString)))
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-an-image */
@@ -547,8 +574,8 @@ trait Methods { self: Requests =>
 
       // todo insert stream
       def insert(url: String, path: String) =
-        stream[Unit](base.POST / id  / "insert" <<?
-                     Map("url" -> url, "path" -> path))
+        stream[Unit](base.POST / id  / "insert"
+                     <<? Map("url" -> url, "path" -> path))
 
       def push = Push()
 
@@ -589,14 +616,16 @@ trait Methods { self: Requests =>
                 "Content-Type" -> "application/tar",
                 "Content-Encoding" -> "gzip") ++ authConfig.map(
                   ("X-Registry-Auth" -> _.headerValue)
-                 ) <<?
-                (Map.empty[String, String]
-                 ++ _tag.map(("t" -> _))
-                 ++ _q.map(("q" -> _.toString))
-                 ++ _nocache.map(("nocache" -> _.toString))
-                 ++ _rm.map(("rm" -> _.toString))
-                 ++ _forcerm.map(("forcerm" -> _.toString)))
-                <<< tarfile))(handler)
+                 ) <<? query)
+                <<< tarfile)(handler)
+
+      def query = (
+        Map.empty[String, String]
+          ++ _tag.map(("t" -> _))
+          ++ _q.map(("q" -> _.toString))
+          ++ _nocache.map(("nocache" -> _.toString))
+          ++ _rm.map(("rm" -> _.toString))
+          ++ _forcerm.map(("forcerm" -> _.toString)))
     }
 
     /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-images */
