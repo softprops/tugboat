@@ -22,19 +22,24 @@ trait Methods { self: Requests =>
 
   case class Auth(_cfg: AuthConfig)
     extends Docker.Completion[Unit] { // fixme: better rep
-    def user(u: String) = config(
-      _cfg.copy(user = u)
-    )
-    def password(pw: String) = config(
-      _cfg.copy(password = pw)
-    )
-    def email(em: String) = config(
-      _cfg.copy(email = em)
-    )
-    def server(svr: String) = config(
-      _cfg.copy(server = svr)
-    )
+
     def config(cfg: AuthConfig) = copy(_cfg = cfg)
+
+    def withConfig(f: AuthConfig => AuthConfig) =
+        config(f(_cfg))
+
+    def user(u: String) =
+      withConfig(_.copy(user = u))
+
+    def password(pw: String) =
+      withConfig(_.copy(password = pw))
+
+    def email(em: String) =
+      withConfig(_.copy(email = em))
+
+    def server(svr: String) =
+      withConfig(_.copy(server = svr))
+
     def apply[T](handler: Docker.Handler[T]) =
       request(json.content(host / "auth") <<
               json.str(
@@ -231,26 +236,26 @@ trait Methods { self: Requests =>
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#start-a-container */
       case class Start(_config: HostConfig)
         extends Docker.Completion[Unit] { // fixme: better rep
+
         def config(cfg: HostConfig) = copy(_config = cfg)
+
+        def withConfig(f: HostConfig => HostConfig) =
+          config(f(_config))
 
         // https://docs.docker.com/userguide/dockerlinks/
         // docker -p  format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort
 
-        def bind(containerPort: Port, binding: PortBinding*) = config(
-          _config.copy(ports = _config.ports + (containerPort -> binding.toList))
-        )
+        def bind(containerPort: Port, binding: PortBinding*) =
+          withConfig(_.copy(ports = _config.ports + (containerPort -> binding.toList)))
 
-        def links(lx: String*) = config(
-          _config.copy(links = lx.toSeq)
-        )
+        def links(lx: String*) =
+          withConfig(_.copy(links = lx.toSeq))
 
-        def capAdd(caps: String*) = config(
-          _config.copy(capAdd = caps.toSeq)
-        )
+        def capAdd(caps: String*) =
+          withConfig(_.copy(capAdd = caps.toSeq))
 
-        def capDrop(caps: String*) = config(
-          _config.copy(capDrop = caps.toSeq)
-        )
+        def capDrop(caps: String*) =
+          withConfig(_.copy(capDrop = caps.toSeq))
 
         // todo: complete builder interface
         def apply[T](handler: Docker.Handler[T]) =
