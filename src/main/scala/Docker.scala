@@ -1,5 +1,6 @@
 package tugboat
 
+import com.ning.http.client.AsyncHttpClientConfig.Builder
 import com.ning.http.client.{ AsyncHandler, HttpResponseStatus, Response, SSLEngineFactory }
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.StringsByLine
@@ -8,14 +9,17 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.bouncycastle.util.io.pem.PemReader
-import org.bouncycastle.openssl._
+import org.bouncycastle.openssl.PEMReader
 import javax.net.ssl.{ KeyManagerFactory, SSLContext, SSLEngine, TrustManagerFactory, X509TrustManager }
 import java.security.{ KeyFactory, KeyPair, KeyStore, SecureRandom, Security }
 import java.security.cert.{ Certificate, CertificateFactory, X509Certificate }
 import java.io.{ BufferedReader, FileInputStream, FileReader }
 
 object Docker {
+
+  // required for bouncy castle open ssl pem reader below
+  Security.addProvider(new BouncyCastleProvider)
+
   case class Error(code: Int, message: String) extends RuntimeException(message)
 
   type Handler[T] = AsyncHandler[T]
@@ -96,17 +100,15 @@ object Docker {
     certs match {
       case Some(path) =>
         def pem(name: String) = s"$path/$name.pem"
-        val (ctx, engine) = Docker.sslInfo(pem("key"), pem("cert"), Some(pem("ca")).filter(_ => verify))
-        http.configure(_.setSSLContext(ctx).setSSLEngineFactory(engine))
+        http.configure(Docker.certify(pem("key"), pem("cert"), Some(pem("ca")).filter(_ => verify)))
       case _ =>
         http
     }
   }
 
-  def sslInfo(
-    keypath: String,
-    certpath: String,
-    authoritypath: Option[String]): (SSLContext, SSLEngineFactory) = {
+  private[tugboat] def certify
+   (keypath: String, certpath: String, authoritypath: Option[String])
+   (builder: Builder): Builder = {
 
     def certificate(path: String): Certificate = {
       val certStm = new FileInputStream(path)
@@ -123,8 +125,9 @@ object Docker {
     def keyStore = {
       // using bouncycastle b/c the provided key may not be in pkcs8 format (boot2dockers keys are not)
       // bouncycastle's PEM reader seems a bit more robust
-      val br = new BufferedReader(new FileReader(keypath))
-      val key = new PEMReader(br).readObject().asInstanceOf[KeyPair].getPrivate()
+      val key = new PEMReader(
+        new BufferedReader(new FileReader(keypath)))
+          .readObject().asInstanceOf[KeyPair].getPrivate()
       /*val PK = """(?ms)^-----BEGIN ?.*? PRIVATE KEY-----$(.+)^-----END ?.*? PRIVATE KEY-----""".r
        val key = io.Source.fromFile(keypath).getLines().mkString("\n") match {
          case PK(body) => KeyFactory.getInstance("RSA").generatePrivate(
@@ -132,7 +135,8 @@ object Docker {
        }*/
       withStore { store =>
         store.load(null, null)
-        store.setKeyEntry("key", key, "".toCharArray, Array(certificate(certpath)))
+        store.setKeyEntry(
+          "key", key, "".toCharArray, Array(certificate(certpath)))
       }
     }
 
@@ -156,32 +160,30 @@ object Docker {
       kmf.getKeyManagers()
     }
 
-    def context = {
-      val ctx = SSLContext.getInstance("TLSv1")
-      val trust = for {
-        auth  <- authoritypath
-        trust <- trustManager(auth)
-      } yield trust
 
-      ctx.init(keyManagers, trust.map(Array(_)).orNull, new SecureRandom)
+    val ctx = SSLContext.getInstance("TLSv1")
+    val trust = for {
+      auth  <- authoritypath
+      trust <- trustManager(auth)
+    } yield trust
 
-      // ssl protocols
-      val sslParams =  ctx.getDefaultSSLParameters()
-      val protocols = Array("TLSv1")
-      sslParams.setProtocols(protocols)
+    ctx.init(keyManagers, trust.map(Array(_)).orNull, new SecureRandom)
 
-      (ctx, new SSLEngineFactory() {
-        def newSSLEngine(): SSLEngine = {
-          val engine = ctx.createSSLEngine()
-          engine.setSSLParameters(ctx.getDefaultSSLParameters)
-          engine.setEnabledProtocols(protocols)
-          //sslEngine.setEnabledCipherSuites(enabledCipherSuites)
-          engine.setUseClientMode(true)
-          engine
-        }
-      })
-    }
-    context
+    // protocols
+    val sslParams =  ctx.getDefaultSSLParameters()
+    val protocols = Array("TLSv1")
+    sslParams.setProtocols(protocols)
+
+    builder.setSSLContext(ctx).setSSLEngineFactory(new SSLEngineFactory() {
+      def newSSLEngine(): SSLEngine = {
+        val engine = ctx.createSSLEngine()
+        engine.setSSLParameters(ctx.getDefaultSSLParameters)
+        engine.setEnabledProtocols(protocols)
+        //sslEngine.setEnabledCipherSuites(enabledCipherSuites)
+        engine.setUseClientMode(true)
+        engine
+      }
+    })
   }
 }
 
@@ -194,8 +196,8 @@ abstract class Requests(
   def host = url(hostStr)
 
   def request[T]
-    (req: Req)
-    (handler: Docker.Handler[T]): Future[T] =
+   (req: Req)
+   (handler: Docker.Handler[T]): Future[T] =
     http(req <:< Docker.DefaultHeaders > handler)
 
   def stream[A: StreamRep](req: Req): Docker.Stream[A] =
@@ -220,12 +222,10 @@ case class Docker(
   extends Requests(hostStr, http, _auth) {
 
   /** see also https://docs.docker.com/articles/https/ */
-  def secure(keypath: String, certpath: String, authoritypath: Option[String]) = copy(
+  def secure(
+    keypath: String, certpath: String, authoritypath: Option[String]) = copy(
     hostStr = hostStr.replaceFirst("http", "https"),
-    http = http.configure { builder =>
-      val (ctx, engine) = Docker.sslInfo(keypath, certpath, authoritypath)
-      builder.setSSLContext(ctx).setSSLEngineFactory(engine)
-    })
+    http = http.configure(Docker.certify(keypath, certpath, authoritypath)))
 
   /** Authenticate requests */
   def as(config: AuthConfig) = copy(_auth = Some(config))
