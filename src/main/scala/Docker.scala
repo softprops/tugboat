@@ -179,7 +179,6 @@ object Docker {
         val engine = ctx.createSSLEngine()
         engine.setSSLParameters(ctx.getDefaultSSLParameters)
         engine.setEnabledProtocols(protocols)
-        //sslEngine.setEnabledCipherSuites(enabledCipherSuites)
         engine.setUseClientMode(true)
         engine
       }
