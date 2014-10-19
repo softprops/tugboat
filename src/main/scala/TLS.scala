@@ -9,6 +9,10 @@ import java.security.{ KeyFactory, KeyPair, KeyStore, SecureRandom, Security }
 import java.security.cert.{ Certificate, CertificateFactory, X509Certificate }
 import java.io.{ BufferedReader, FileInputStream, FileReader }
 
+/** Encapsulates tls configuration for http connections required for tcp security requirements
+ *  to encure client communication is certified.
+ *  see also jvm system property -Djavax.net.debug=all for debugging
+ */
 case class TLS(
   keyPath: String, certPath: String, caPath: Option[String]) {
 
