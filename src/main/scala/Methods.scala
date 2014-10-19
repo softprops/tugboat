@@ -41,12 +41,14 @@ trait Methods { self: Requests =>
       withConfig(_.copy(server = svr))
 
     def apply[T](handler: Docker.Handler[T]) =
-      request(json.content(host / "auth") <<
-              json.str(
-                ("username" -> _cfg.user) ~
-                ("password" -> _cfg.password) ~
-                ("email" -> _cfg.email) ~
-                ("serveraddress" -> _cfg.server)))(handler)
+      request(json.content(host / "auth") << body)(handler)
+
+    def body =
+      json.str(
+        ("username" -> _cfg.user) ~
+        ("password" -> _cfg.password) ~
+        ("email" -> _cfg.email) ~
+        ("serveraddress" -> _cfg.server))
   }
 
   case class Events(
@@ -196,13 +198,13 @@ trait Methods { self: Requests =>
         request(json.content(base.POST) / "create" <<?
                 (Map.empty[String, String]
                  ++ _name.map(("name" -> _)))
-                << bodyStr)(handler)
+                << body)(handler)
 
       // config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L213
       // host config https://github.com/dotcloud/docker/blob/master/runconfig/parse.go#L236
       // run https://github.com/dotcloud/docker/blob/master/api/client/commands.go#L1897
 
-      def bodyStr = json.str(
+      def body = json.str(
         ("Hostname"        -> _config.hostname) ~
         ("Domainname"      -> _config.domainName) ~
         ("ExposedPorts"    -> _config.exposedPorts.map { ep =>
@@ -259,9 +261,9 @@ trait Methods { self: Requests =>
 
         // todo: complete builder interface
         def apply[T](handler: Docker.Handler[T]) =
-          request(json.content(base.POST) / id / "start" << bodyStr)(handler)
+          request(json.content(base.POST) / id / "start" << body)(handler)
 
-        def bodyStr = json.str(
+        def body = json.str(
           ("Binds" -> Option(_config.binds).filter(_.nonEmpty)) ~
           ("ContainerIDFile" -> _config.containerIdFile) ~
           ("LxcConf" -> _config.lxcConf) ~
