@@ -45,9 +45,9 @@ trait Methods { self: Requests =>
 
     def body =
       json.str(
-        ("username" -> _cfg.user) ~
-        ("password" -> _cfg.password) ~
-        ("email" -> _cfg.email) ~
+        ("username"      -> _cfg.user) ~
+        ("password"      -> _cfg.password) ~
+        ("email"         -> _cfg.email) ~
         ("serveraddress" -> _cfg.server))
   }
 
