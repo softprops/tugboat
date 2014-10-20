@@ -72,12 +72,55 @@ object PortBinding {
   def local(port: Int) = PortBinding("0.0.0.0", port)
 }
 
+object VolumeBinding {
+  val Spec = """(.*):(.*)""".r
+  val Restricted = """(.*):(.*):(.*)""".r
+  trait Mode {
+    def value: String = getClass.getSimpleName.stripSuffix("$")
+  }
+  case object RO extends Mode
+  case object RW extends Mode
+  def parse(str: String) = str match {
+    case Spec(host, container) =>
+      VolumeBinding(host, container)
+    case Restricted(host, container, mode) =>
+      VolumeBinding(host, container, mode match {
+        case "ro" => Some(RO)
+        case "rw" => Some(RW)
+        case _ => None
+      })
+  }
+}
+
+case class VolumeBinding(
+  hostPath: String, containerPath: String,
+  mode: Option[VolumeBinding.Mode] = None) {
+  lazy val spec = s"$hostPath:$containerPath${mode.map(m => ":" + m.value).getOrElse("")}"
+}
+
+object VolumeFromBinding {
+  val Restricted = """(.*):(.*)""".r
+  def parse(str: String) = str match {
+    case Restricted(container, mode) => VolumeFromBinding(container, mode match {
+      case "ro" => Some(VolumeBinding.RO)
+      case "rw" => Some(VolumeBinding.RW)
+      case _ => None
+    })
+    case container => VolumeFromBinding(container)
+  }
+}
+
+case class VolumeFromBinding(
+  container: String, mode: Option[VolumeBinding.Mode] = None) {
+  lazy val spec = s"$container${mode.map(m => ":" + m.value).getOrElse("")}"
+}
+
 case class NetworkSettings(
   bridge: String, gateway: String, ipAddr: String, ipPrefixLen: Int, ports: Map[Port, List[PortBinding]])
 
 // https://github.com/dotcloud/docker/blob/v1.0.1/runconfig/hostconfig.go#L22
 case class HostConfig(
-  binds: Seq[String]                    = Seq.empty,
+  binds: Seq[VolumeBinding]             = Seq.empty,
   containerIdFile: String               = "",
   lxcConf: Seq[String]                  = Seq.empty,
   privileged: Boolean                   = false,
@@ -86,10 +129,10 @@ case class HostConfig(
   publishAllPorts: Boolean              = false,
   dns: Seq[String]                      = Seq.empty,
   dnsSearch: Seq[String]                = Seq.empty,
-  volumesFrom: Seq[String]              = Seq.empty,
+  volumesFrom: Seq[VolumeFromBinding]   = Seq.empty,
   networkMode: NetworkMode              = NetworkMode.Bridge,
   capAdd: Seq[String]                   = Seq.empty,
-  capDrop: Seq[String]                 = Seq.empty)
+  capDrop: Seq[String]                  = Seq.empty)
 
 case class ContainerDetails(
   id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
@@ -114,6 +157,8 @@ case class ImageDetails(
 
 case class SearchResult(
   name: String, description: String, trusted: Boolean, official: Boolean, stars: Int)
+
+case class ImageDeletionStatus(status: String, id: String)
 
 /** type class for default representations */
 sealed trait Rep[T] {
@@ -258,7 +303,7 @@ object Rep {
         ("PublishAllPorts", JBool(pubAllPorts)) <- config
         ("VolumesFrom", volumesFrom)            <- config
       } yield HostConfig(
-        strs(binds),
+        strs(binds).map(VolumeBinding.parse(_)),
         idFile,
         strs(lxcConf),
         priv,
@@ -274,7 +319,7 @@ object Rep {
         pubAllPorts,
         strs(dns),
         strs(dnsSearch),
-        strs(volumesFrom), (for {
+        strs(volumesFrom).map(VolumeFromBinding.parse(_)), (for {
           ("NetworkMode", JString(NetworkMode(netMode))) <- config
         } yield netMode).headOption.getOrElse(NetworkMode.Bridge),
         for {
@@ -433,4 +478,13 @@ object Rep {
       ).headOption
     }
   }
+
+  implicit val ImageDeletions: Rep[List[ImageDeletionStatus]] =
+    new Rep[List[ImageDeletionStatus]] {
+      def map = (as.json4s.Json andThen (for {
+        JArray(statuses)      <- _
+        JObject(status)       <- statuses
+        (stat, JString(id))   <- status
+      } yield ImageDeletionStatus(stat, id)))
+    }
 }

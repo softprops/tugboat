@@ -91,7 +91,7 @@ trait Methods { self: Requests =>
   object containers {
     private[this] def base = host / "containers"
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-containers */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#list-containers */
     case class Containers(
       private val _all: Option[Boolean]   = None,
       private val _limit: Option[Int]     = None,
@@ -116,7 +116,7 @@ trait Methods { self: Requests =>
           ++ _sizes.map(("size"    -> _.toString)))
     }    
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#create-a-container */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#create-a-container */
     case class Create(
       private val _config: ContainerConfig,
       private val _name: Option[String]                 = None,
@@ -240,20 +240,29 @@ trait Methods { self: Requests =>
     case class Container(id: String)
       extends Docker.Completion[Option[ContainerDetails]] {
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#start-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#start-a-container */
       case class Start(_config: HostConfig)
-        extends Docker.Completion[Unit] { // fixme: better rep
+        extends Docker.Completion[Unit] {
 
         def config(cfg: HostConfig) = copy(_config = cfg)
 
         def withConfig(f: HostConfig => HostConfig) =
           config(f(_config))
 
-        // https://docs.docker.com/userguide/dockerlinks/
-        // docker -p  format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort
+        def publishAllPorts(pub: Boolean) =
+          withConfig(_.copy(publishAllPorts = pub))
 
-        def bind(containerPort: Port, binding: PortBinding*) =
+        // https://docs.docker.com/userguide/dockerlinks/
+        // docker -p  format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort 
+
+        def portBind(containerPort: Port, binding: PortBinding*) =
           withConfig(_.copy(ports = _config.ports + (containerPort -> binding.toList)))
+
+        def volumeBind(bindings: VolumeBinding*) =
+          withConfig(_.copy(binds = bindings.toSeq))
+
+        def volumesFrom(bindings: VolumeFromBinding*) =
+          withConfig(_.copy(volumesFrom = bindings.toSeq))
 
         def links(lx: String*) =
           withConfig(_.copy(links = lx.toSeq))
@@ -264,12 +273,18 @@ trait Methods { self: Requests =>
         def capDrop(caps: String*) =
           withConfig(_.copy(capDrop = caps.toSeq))
 
+        def privileged(priv: Boolean) =
+          withConfig(_.copy(privileged = priv))
+
+        def dns(hosts: String*) =
+          withConfig(_.copy(dns = hosts.toSeq))
+
         // todo: complete builder interface
         def apply[T](handler: Docker.Handler[T]) =
           request(json.content(base.POST) / id / "start" << body)(handler)
 
         def body = json.str(
-          ("Binds" -> Option(_config.binds).filter(_.nonEmpty)) ~
+          ("Binds" -> Option(_config.binds.map(_.spec)).filter(_.nonEmpty)) ~
           ("ContainerIDFile" -> _config.containerIdFile) ~
           ("LxcConf" -> _config.lxcConf) ~
           ("Privileged" -> _config.privileged) ~
@@ -285,15 +300,15 @@ trait Methods { self: Requests =>
           ("Dns" -> Option(_config.dns).filter(_.nonEmpty)) ~
           ("DnsSearch" -> Option(_config.dnsSearch).filter(_.nonEmpty)) ~
           ("NetworkMode" -> _config.networkMode.value) ~
-          ("VolumesFrom" -> Option(_config.volumesFrom).filter(_.nonEmpty)) ~
+          ("VolumesFrom" -> Option(_config.volumesFrom.map(_.spec)).filter(_.nonEmpty)) ~
           ("CapAdd" -> Option(_config.capAdd).filter(_.nonEmpty)) ~
           ("CapDrop" -> Option(_config.capDrop).filter(_.nonEmpty)))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#kill-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#kill-a-container */
       case class Kill(
         _signal: Option[String] = None)
-        extends Docker.Completion[Unit] { // fixme: better rep
+        extends Docker.Completion[Unit] {
 
         def signal(sig: String) = copy(_signal = Some(sig))
 
@@ -304,7 +319,7 @@ trait Methods { self: Requests =>
          def query = Map.empty[String, String] ++ _signal.map(("signal" -> _))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-container-logs */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-container-logs */
       case class Logs(
         private val _follow: Option[Boolean]     = None,
         private val _stdout: Option[Boolean]     = None,
@@ -346,44 +361,44 @@ trait Methods { self: Requests =>
             ++ _force.map(("force" -> _.toString)))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#inspect-a-container */
       def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-processes-running-inside-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#list-processes-running-inside-a-container */
       def top(args: String = "") =
         complete[Top](base / id / "top" <<? Map("ps_args" -> args))
       
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-container-logs */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-container-logs */
       def logs = Logs()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-changes-on-a-containers-filesystem */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#inspect-changes-on-a-containers-filesystem */
       def changes =
         complete[List[Change]](base / id / "changes")
       
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#export-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#export-a-container */
       def export(toFile: File) =
         request(base / id / "export")(dispatch.as.File(toFile))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#start-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#start-a-container */
       def start = Start(HostConfig())
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#stop-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#stop-a-container */
       def stop(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#restart-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#restart-a-container */
       def restart(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "restart" <<? Map("t" -> after.toString))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#kill-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#kill-a-container */
       def kill = Kill()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#pause-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#pause-a-container */
       def pause =
         complete[Unit](base.POST / id / "pause")
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#unpause-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#unpause-a-container */
       def unpause =
         complete[Unit](base.POST / id / "unpause")
 
@@ -424,18 +439,18 @@ trait Methods { self: Requests =>
         }
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#attach-to-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#attach-to-a-container */
       //def attach = Attach()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#wait-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#wait-a-container */
       def await =
         complete[Status](base.POST / id / "wait")
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#remove-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#remove-a-container */
       def delete = Delete()
 
       // todo: octet stream
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#copy-files-or-folders-from-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#copy-files-or-folders-from-a-container */
      /* def cp(resource: String) = new Docker.Stream[Unit] {
         def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "copy")(handler)
@@ -517,7 +532,7 @@ trait Methods { self: Requests =>
     case class Image(id: String)
       extends Docker.Completion[Option[ImageDetails]] {
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#push-an-image-on-the-registry */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#push-an-image-on-the-registry */
       case class Push(
         _registry: Option[String] = None)
         extends Docker.Stream[tugboat.Push.Output] {
@@ -532,7 +547,7 @@ trait Methods { self: Requests =>
                   ++ _registry.map(("registry" -> _))))(handler)
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#tag-an-image-into-a-repository */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#tag-an-image-into-a-repository */
       case class Tag(
         _repo: Option[String]   = None,
         _force: Option[Boolean] = None)
@@ -548,12 +563,11 @@ trait Methods { self: Requests =>
             ++ _force.map(("force" -> _.toString)))
       }
        
-      // todo: stream rep
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#remove-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#remove-an-image */
       case class Delete(
         private val _force: Option[Boolean]   = None,
         private val _noprune: Option[Boolean] = None)
-        extends Docker.Stream[String] {
+        extends Docker.Completion[List[ImageDeletionStatus]] {
         def force(f: Boolean) = copy(_force = Some(f))
         def noprune(np: Boolean) = copy(_noprune = Some(np))
         def apply[T](handler: Docker.Handler[T]) =
@@ -565,11 +579,11 @@ trait Methods { self: Requests =>
             ++ _noprune.map(("noprune" -> _.toString)))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#inspect-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#inspect-an-image */
       def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#get-the-history-of-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-the-history-of-an-image */
       def history = complete[List[Record]](base / id / "history")
 
       // todo insert stream
@@ -584,7 +598,7 @@ trait Methods { self: Requests =>
       def delete = Delete()
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#search-images */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#search-images */
     case class Search(
       private val _term: Option[String] = None)
       extends Docker.Completion[List[SearchResult]] {
@@ -593,7 +607,7 @@ trait Methods { self: Requests =>
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#build-an-image-from-dockerfile-via-stdin */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#build-an-image-from-dockerfile-via-stdin */
     case class Build(
       path: File,
       private val _tag: Option[String]      = None,
@@ -628,7 +642,7 @@ trait Methods { self: Requests =>
           ++ _forcerm.map(("forcerm" -> _.toString)))
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.14/#list-images */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#list-images */
     def list = Images()
 
     // the api calls this create by the default client calls this pull
