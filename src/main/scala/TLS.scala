@@ -72,7 +72,7 @@ case class TLS(
 
     val ctx = SSLContext.getInstance("TLSv1")
     val trust = for {
-      ca  <- caPath
+      ca    <- caPath
       trust <- trustManager(ca)
     } yield trust
 
