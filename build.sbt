@@ -2,7 +2,7 @@ organization := "me.lessis"
 
 name := "tugboat"
 
-version := "0.1.0-SNAPSHOT"
+version := "0.1.0"
 
 description := "a small boat that maneuvers docker vessels"
 
@@ -29,3 +29,29 @@ sourceGenerators in Compile <+= buildInfo
 buildInfoKeys := Seq[BuildInfoKey](version)
 
 buildInfoPackage := "tugboat"
+
+licenses := Seq(
+  ("MIT", url(s"https://github.com/softprops/${name.value}/blob/${version.value}/LICENSE")))
+
+seq(bintraySettings:_*)
+
+bintray.Keys.packageLabels in bintray.Keys.bintray := Seq("docker", "containers")
+
+seq(lsSettings:_*)
+
+LsKeys.tags in LsKeys.lsync := (bintray.Keys.packageLabels in bintray.Keys.bintray).value
+
+externalResolvers in LsKeys.lsync := (resolvers in bintray.Keys.bintray).value
+
+pomExtra := (
+  <scm>
+    <url>git@github.com:softprops/tugboat.git</url>
+    <connection>scm:git:git@github.com:softprops/tugboat.git</connection>
+  </scm>
+  <developers>
+    <developer>
+      <id>softprops</id>
+      <name>Doug Tangren</name>
+      <url>https://github.com/softprops</url>
+    </developer>
+  </developers>)

@@ -1,0 +1,29 @@
+{
+  "organization" : "me.lessis",
+  "name" : "tugboat",
+  "version" : "0.1.0",
+  "description" : "a small boat that maneuvers docker vessels",
+  "site" : "",
+  "tags" : [ "docker", "containers" ],
+  "docs" : "",
+  "resolvers" : [ "http://dl.bintray.com/content/softprops/maven" ],
+  "dependencies" : [ {
+    "organization" : "org.bouncycastle",
+    "name" : "bcprov-jdk16",
+    "version" : "1.46"
+  }, {
+    "organization" : "net.databinder.dispatch",
+    "name" : "dispatch-json4s-native",
+    "version" : "0.11.2"
+  }, {
+    "organization" : "org.kamranzafar",
+    "name" : "jtar",
+    "version" : "2.2"
+  } ],
+  "scalas" : [ "2.10.4", "2.10.4", "2.11.2" ],
+  "licenses" : [ {
+    "name" : "MIT",
+    "url" : "https://github.com/softprops/tugboat/blob/0.1.0/LICENSE"
+  } ],
+  "sbt" : false
+}
