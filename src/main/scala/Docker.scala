@@ -69,7 +69,7 @@ object Docker {
       }
     }
 
-    def each[T: StreamRep]: (T => Unit) => Docker.Handler[Unit] with Stream.Stopper = { f =>
+    def chunk[T: StreamRep]: (T => Unit) => Docker.Handler[Unit] with Stream.Stopper = { f =>
       new Strings[Unit] with Docker.StreamErrorHandler[Unit]
         with Docker.Stream.Stopper {
         def onString(str: String) {

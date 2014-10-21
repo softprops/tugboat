@@ -65,7 +65,7 @@ trait Methods { self: Requests =>
         ++ _until.map( u => ("until"   -> (u / 1000).toString)))
 
     override protected def streamer =
-      Docker.Stream.each[Event.Record]
+      Docker.Stream.chunk[Event.Record]
   }
 
   def version = complete[Version](host / "version")
@@ -491,7 +491,7 @@ trait Methods { self: Requests =>
       private val _registry: Option[String]  = None)
       extends Docker.Stream[tugboat.Pull.Output] {
       override protected def streamer =
-        Docker.Stream.each[tugboat.Pull.Output]
+        Docker.Stream.chunk[tugboat.Pull.Output]
 
       def fromImage(img: String) = copy(_fromImage = img)
       def fromSrc(src: String) = copy(_fromSrc = Some(src))
