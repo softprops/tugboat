@@ -2,7 +2,6 @@ package tugboat
 
 import com.ning.http.client.generators.InputStreamBodyGenerator
 import dispatch.{ as, Req }
-import dispatch.stream.Strings
 import dispatch.stream.StringsByLine
 import java.io.{ File, PipedInputStream, PipedOutputStream, InputStream, OutputStream }
 import org.json4s.JsonDSL._
@@ -65,15 +64,8 @@ trait Methods { self: Requests =>
         ++ _since.map( s => ("since"   -> (s / 1000).toString))
         ++ _until.map( u => ("until"   -> (u / 1000).toString)))
 
-    override protected def streamer = { f =>
-      new Strings[Unit] with Docker.StreamErrorHandler[Unit]
-        with Docker.Stream.Stopper {
-        def onString(str: String) {
-          f(implicitly[StreamRep[Event.Record]].map(str.trim))
-        }
-        def onCompleted = ()
-      }
-    }
+    override protected def streamer =
+      Docker.Stream.each[Event.Record]
   }
 
   def version = complete[Version](host / "version")
@@ -498,15 +490,8 @@ trait Methods { self: Requests =>
       private val _tag: Option[String]       = None,
       private val _registry: Option[String]  = None)
       extends Docker.Stream[tugboat.Pull.Output] {
-      override protected def streamer = { f =>
-        new Strings[Unit] with Docker.StreamErrorHandler[Unit]
-          with Docker.Stream.Stopper {
-          def onString(str: String) {
-            f(implicitly[StreamRep[tugboat.Pull.Output]].map(str.trim))
-          }
-          def onCompleted = ()
-        }
-      }
+      override protected def streamer =
+        Docker.Stream.each[tugboat.Pull.Output]
 
       def fromImage(img: String) = copy(_fromImage = img)
       def fromSrc(src: String) = copy(_fromSrc = Some(src))

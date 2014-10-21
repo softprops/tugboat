@@ -2,14 +2,16 @@ package tugboat
 
 import com.ning.http.client.{ AsyncHandler, HttpResponseStatus, Response }
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
-import dispatch.stream.StringsByLine
+import dispatch.stream.{ Strings, StringsByLine }
 import java.net.URI
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
+import scala.util.control.NoStackTrace
 
 object Docker {
 
-  case class Error(code: Int, message: String) extends RuntimeException(message)
+  case class Error(code: Int, message: String)
+    extends RuntimeException(message) with NoStackTrace
 
   type Handler[T] = AsyncHandler[T]
 
@@ -56,6 +58,26 @@ object Docker {
     trait Stopper {
       def stop(): Unit
     }
+
+    def lines[T: StreamRep]: (T => Unit) => Docker.Handler[Unit] with Stream.Stopper = { f =>
+      new StringsByLine[Unit] with StreamErrorHandler[Unit]
+        with Stream.Stopper {
+        def onStringBy(str: String) {
+          f(implicitly[StreamRep[T]].map(str))
+        }
+        def onCompleted = ()
+      }
+    }
+
+    def each[T: StreamRep]: (T => Unit) => Docker.Handler[Unit] with Stream.Stopper = { f =>
+      new Strings[Unit] with Docker.StreamErrorHandler[Unit]
+        with Docker.Stream.Stopper {
+        def onString(str: String) {
+          f(implicitly[StreamRep[T]].map(str.trim))
+        }
+        def onCompleted = ()
+      }
+    }
   }
 
   /** extension of completer providing a default rep of the items within
@@ -72,14 +94,7 @@ object Docker {
 
     /** @return a function that takes a function to apply to each chunk of a response
      *          and produces a handler for the request's response */
-    protected def streamer: Handler => Docker.Handler[Unit] with Stream.Stopper = { f =>
-      new StringsByLine[Unit] with StreamErrorHandler[Unit] with Stream.Stopper {
-        def onStringBy(str: String) {
-          f(implicitly[StreamRep[T]].map(str))
-        }
-        def onCompleted = ()
-      }
-    }
+    protected def streamer: Handler => Docker.Handler[Unit] with Stream.Stopper = Stream.lines
   }
 
   private def env(name: String) = Option(System.getenv(s"DOCKER_$name".toUpperCase))
