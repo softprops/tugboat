@@ -5,6 +5,16 @@
 [Docker](http://www.docker.com/) is a manager for the containment of applications. Tugboat is a small library
 that speaks the docker protocol for moving applications and containers in and out of your local seaport.
 
+## install
+
+Add the following to your sbt project definition
+
+```scala
+resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven"
+
+libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
+```
+
 ## usage
 
 Tugboat provides interfaces for interacting with docker over http returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is reachable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some enviconments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.

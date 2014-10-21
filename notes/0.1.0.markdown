@@ -1,1 +1,5 @@
-# initial release
+## initial release
+
+Initial release of an async client interface for [docker](https://www.docker.com/) ( you might have heard of it ).
+
+See the project's [readme](https://github.com/softprops/tugboat#readme) for a more indepth overview.
