@@ -17,14 +17,14 @@ libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
 
 ## usage
 
-Tugboat provides interfaces for interacting with docker over http returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is reachable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some enviconments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
+Tugboat provides interfaces for interacting with docker over http returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is reachable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some environments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
 
 Tugboat will work out of the box with various conventional env vars set.
 
 name        | value
 ------------|--------------------------------------------------------------------------------------
 DOCKER_HOST | the tcp host where the docker daemon is bound to
-CERT_PATH   | the base path of were docker tls key.pem, cert.prm, and ca.pem files will be resolved
+CERT_PATH   | the base path of were docker tls key.pem, cert.pem, and ca.pem files will be resolved
 TLS_VERIFY  | any non empty string is considered truthy
 
 _note_: the unix domain socket interface is not yet supported but is planned for the future
