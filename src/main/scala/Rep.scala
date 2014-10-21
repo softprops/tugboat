@@ -184,32 +184,43 @@ sealed trait Rep[T] {
 
 object Rep {
 
-  trait Common {
+  private[Rep] trait Common {
     def strs(v: JValue) = for {
       JArray(xs)   <- v
       JString(str) <- xs
     } yield str
+
+    def optStr(name: String, fields: List[JField]) = (for {
+      (`name`, JString(value)) <- fields
+    } yield value).headOption
+
+    def optLong(name: String, fields: List[JField]) = (for {
+      (`name`, JInt(value)) <- fields
+    } yield value.toLong).headOption
   }
 
-  implicit val Identity: Rep[Response] = new Rep[Response] {
-    def map = identity(_)
-  }
-
-  implicit val Nada: Rep[Unit] = new Rep[Unit] {
-    def map = _ => ()
-  }
-
-  implicit val Versions: Rep[Version] = new Rep[Version] {
-    def map = { r =>
-      (for {
-        JObject(version) <- as.json4s.Json(r)
-        ("ApiVersion", JString(api)) <- version
-        ("Version", JString(ver))    <- version
-        ("GitCommit", JString(git))  <- version
-        ("GoVersion", JString(go))   <- version
-      } yield Version(api, ver, git, go)).head
+  implicit val Identity: Rep[Response] =
+    new Rep[Response] {
+      def map = identity(_)
     }
-  }
+
+  implicit val Nada: Rep[Unit] =
+    new Rep[Unit] {
+      def map = _ => ()
+    }
+
+  implicit val Versions: Rep[Version] =
+    new Rep[Version] {
+      def map = { r =>
+        (for {
+          JObject(version) <- as.json4s.Json(r)
+          ("ApiVersion", JString(api)) <- version
+          ("Version", JString(ver))    <- version
+          ("GitCommit", JString(git))  <- version
+          ("GoVersion", JString(go))   <- version
+        } yield Version(api, ver, git, go)).head
+      }
+    }
 
   implicit val Infos: Rep[Info] = new Rep[Info] {
     def map = { r =>
@@ -236,45 +247,45 @@ object Rep {
     }
   }
 
-  implicit val ListOfContainers: Rep[List[Container]] = new Rep[List[Container]] {
-    def map = (as.json4s.Json andThen (for {
-      JArray(containers)         <- _
-      JObject(cont)              <- containers
-      ("Id", JString(id))        <- cont
-      ("Image", JString(img))    <- cont
-      ("Command", JString(cmd))  <- cont
-      ("Created", JInt(created)) <- cont
-      ("Status", JString(stat))  <- cont
-    } yield Container(
-      id, img, cmd, created.toLong * 1000, stat,
-      for {
-        ("Ports", JArray(ps))       <- cont
-        JObject(port)               <- ps
-        ("IP", JString(ip))         <- port
-        ("PrivatePort", JInt(priv)) <- port
-        ("PublicPort", JInt(pub))   <- port
-        ("Type", JString(typ))      <- port
-      } yield PortDesc(ip, priv.toInt, pub.toInt, typ),
-      for {
-        ("Names", JArray(names)) <- cont
-        JString(name)            <- names
-      } yield name,
-      (for ( ("SizeRw", JInt(size)) <- cont)
-       yield size.toLong).headOption,
-      (for ( ("SizeRootFs", JInt(size)) <- cont)
-       yield size.toLong).headOption
-    )))
+  implicit val ListOfContainers: Rep[List[Container]] =
+    new Rep[List[Container]] with Common {
+      def map = (as.json4s.Json andThen (for {
+        JArray(containers)         <- _
+        JObject(cont)              <- containers
+        ("Id", JString(id))        <- cont
+        ("Image", JString(img))    <- cont
+        ("Command", JString(cmd))  <- cont
+        ("Created", JInt(created)) <- cont
+        ("Status", JString(stat))  <- cont
+      } yield Container(
+        id, img, cmd, created.toLong * 1000, stat,
+        for {
+          ("Ports", JArray(ps))       <- cont
+          JObject(port)               <- ps
+          ("IP", JString(ip))         <- port
+          ("PrivatePort", JInt(priv)) <- port
+          ("PublicPort", JInt(pub))   <- port
+          ("Type", JString(typ))      <- port
+        } yield PortDesc(ip, priv.toInt, pub.toInt, typ),
+        for {
+          ("Names", JArray(names)) <- cont
+          JString(name)            <- names
+        } yield name,
+        optLong("SizeRw", cont),
+        optLong("SizeRootFs", cont)
+      )))
   }
 
-  implicit val CreateResponse: Rep[Create.Response] = new Rep[Create.Response] {
-    def map = { r => (for {
-      JObject(resp)       <- as.json4s.Json(r)
-      ("Id", JString(id)) <- resp
-    } yield Create.Response(id, for {
-      ("Warnings", JArray(warns)) <- resp
-      JString(warn)               <- warns
-    } yield warn)).head }
-  }
+  implicit val CreateResponse: Rep[Create.Response] =
+    new Rep[Create.Response] {
+      def map = { r => (for {
+        JObject(resp)       <- as.json4s.Json(r)
+        ("Id", JString(id)) <- resp
+      } yield Create.Response(id, for {
+        ("Warnings", JArray(warns)) <- resp
+        JString(warn)               <- warns
+      } yield warn)).head }
+    }
 
   implicit object ContainerDetail extends Rep[Option[ContainerDetails]] 
     with Common {
@@ -360,7 +371,7 @@ object Rep {
         ("IPPrefixLen", JInt(prefLen))         <- settings
       } yield NetworkSettings(bridge, gateway, ip, prefLen.toInt, (for {
         ("Ports", JObject(ports)) <- settings
-        (Port(port), mappings)          <- ports
+        (Port(port), mappings)    <- ports
       } yield {
         (port, (for {
           JArray(confs)                   <- mappings
@@ -406,19 +417,20 @@ object Rep {
         } yield (k, v)).toMap)).head
   }
 
-  implicit val ListOfRecord: Rep[List[Record]] = new Rep[List[Record]] {
-    def map = (as.json4s.Json andThen (for {
-      JArray(events)              <- _
-      JObject(event)              <- events
-      ("Id", JString(id))         <- event
-      ("Created", JInt(created))  <- event
-      ("CreatedBy", JString(by))  <- event
-      ("Size", JInt(size))        <- event
-    } yield Record(id, created.toLong, by, size.toLong, for {
-      ("Tags", JArray(tags)) <- event
-      JString(tag)           <- tags
-    } yield tag)))
-  }
+  implicit val ListOfRecord: Rep[List[Record]] =
+    new Rep[List[Record]] {
+      def map = (as.json4s.Json andThen (for {
+        JArray(events)              <- _
+        JObject(event)              <- events
+        ("Id", JString(id))         <- event
+        ("Created", JInt(created))  <- event
+        ("CreatedBy", JString(by))  <- event
+        ("Size", JInt(size))        <- event
+      } yield Record(id, created.toLong, by, size.toLong, for {
+        ("Tags", JArray(tags)) <- event
+        JString(tag)           <- tags
+      } yield tag)))
+    }
 
   implicit val Tops: Rep[Top] = new Rep[Top] {
     def map = { r => (for {
@@ -433,25 +445,29 @@ object Rep {
     }
   }
 
-  implicit val ListOfChanges: Rep[List[Change]] = new Rep[List[Change]] {
-    def map = (as.json4s.Json andThen (for {
-      JArray(changes) <- _
-      JObject(change) <- changes
-      ("Path", JString(path)) <- change
-      ("Kind", JInt(kind)) <- change
-    } yield Change(path, kind.toInt)))
-  }
+  implicit val ListOfChanges: Rep[List[Change]] =
+    new Rep[List[Change]] {
+      def map = (as.json4s.Json andThen (for {
+        JArray(changes) <- _
+        JObject(change) <- changes
+        ("Path", JString(path)) <- change
+        ("Kind", JInt(kind)) <- change
+      } yield Change(path, kind.toInt)))
+    }
 
-  implicit val StatusCode: Rep[Status] = new Rep[Status] {
-    def map = { r => (for {
-      JObject(status)            <- as.json4s.Json(r)
-      ("StatusCode", JInt(code)) <- status
-    } yield Status(code.toInt)).head
-   }
-  }
+  implicit val StatusCode: Rep[Status] =
+    new Rep[Status] {
+      def map = { r =>
+        (for {
+          JObject(status)            <- as.json4s.Json(r)
+          ("StatusCode", JInt(code)) <- status
+        } yield Status(code.toInt)).head
+      }
+    }
 
-  implicit val ListOfImages: Rep[List[Image]] = new Rep[List[Image]] {
-    def map = (as.json4s.Json andThen (for {
+  implicit val ListOfImages: Rep[List[Image]] =
+    new Rep[List[Image]] with Common {
+      def map = (as.json4s.Json andThen (for {
         JArray(imgs)                 <- _
         JObject(img)                 <- imgs
         ("Id", JString(id))          <- img
@@ -462,13 +478,12 @@ object Rep {
         id, created.toLong, size.toLong, vsize.toLong, for {
           ("RepoTags", JArray(tags)) <- img
           JString(tag) <- tags
-        } yield tag, (for {
-          ("ParentId", JString(parent)) <- img
-        } yield parent).headOption)))
-  }
+        } yield tag, optStr("ParentId", img))))
+    }
 
-  implicit val ListOfSearchResults: Rep[List[SearchResult]] = new Rep[List[SearchResult]] {
-    def map = (as.json4s.Json andThen (for {
+  implicit val ListOfSearchResults: Rep[List[SearchResult]] =
+    new Rep[List[SearchResult]] {
+      def map = (as.json4s.Json andThen (for {
         JArray(results)                <- _
         JObject(res)                   <- results
         ("name", JString(name))        <- res
@@ -478,27 +493,26 @@ object Rep {
         ("star_count", JInt(stars))    <- res
       } yield SearchResult(
         name, desc, trust, offic, stars.toInt)))
-  }
-
-  implicit val ImageDetail: Rep[Option[ImageDetails]] = new Rep[Option[ImageDetails]] {
-    def map = { r =>
-      (for {
-        JObject(img)                      <- as.json4s.Json(r)
-        ("Id", JString(id))               <- img
-        ("Created", JString(created))     <- img
-        ("Container", JString(container)) <- img
-        ("Size", JInt(size))              <- img
-      } yield ImageDetails(
-        id, created, container, size.toLong,
-        (for {
-          ("Parent", JString(parent)) <- img
-        } yield parent).headOption,
-        (for {
-          ("ContainerConfig", JObject(cfg)) <- img
-        } yield ContainerDetail.containerConfig(cfg)).head)
-      ).headOption
     }
-  }
+
+  implicit val ImageDetail: Rep[Option[ImageDetails]] =
+    new Rep[Option[ImageDetails]] with Common {
+      def map = { r =>
+        (for {
+          JObject(img)                      <- as.json4s.Json(r)
+          ("Id", JString(id))               <- img
+          ("Created", JString(created))     <- img
+          ("Container", JString(container)) <- img
+          ("Size", JInt(size))              <- img
+        } yield ImageDetails(
+          id, created, container, size.toLong,
+          optStr("Parent", img),
+          (for {
+            ("ContainerConfig", JObject(cfg)) <- img
+          } yield ContainerDetail.containerConfig(cfg)).head)
+       ).headOption
+      }
+    }
 
   implicit val ImageDeletions: Rep[List[ImageDeletionStatus]] =
     new Rep[List[ImageDeletionStatus]] {
