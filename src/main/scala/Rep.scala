@@ -24,9 +24,15 @@ case class Info(
 case class PortDesc(ip: String, priv: Int, pub: Int, typ: String)
 
 case class Container(
-  id: String, image: String, cmd: String, created: Long, status: String,
-  ports: Seq[PortDesc], names: Seq[String],
-  sizeRw: Option[Long] = None, sizeRootFs: Option[Long] = None)
+  id: String,
+  image: String,
+  cmd: String, 
+  created: Long,
+  status: String,
+  ports: Seq[PortDesc],
+  names: Seq[String],
+  sizeRw: Option[Long]     = None,
+  sizeRootFs: Option[Long] = None)
 
 object Create {
   case class Response(id: String, warnings: Seq[String])
@@ -166,6 +172,14 @@ sealed trait Rep[T] {
 }
 
 object Rep {
+
+  trait Common {
+    def strs(v: JValue) = for {
+      JArray(xs)   <- v
+      JString(str) <- xs
+    } yield str
+  }
+
   implicit val Identity: Rep[Response] = new Rep[Response] {
     def map = identity(_)
   }
@@ -251,7 +265,8 @@ object Rep {
     } yield warn)).head }
   }
 
-  implicit object ContainerDetail extends Rep[Option[ContainerDetails]] {
+  implicit object ContainerDetail extends Rep[Option[ContainerDetails]] 
+    with Common {
     private[this] val KeyVal = """(.+)=(.+)""".r
 
     def map = { r => (for {
@@ -283,11 +298,6 @@ object Rep {
       } yield (vol, rw)).toMap,
       containerHostConfig(cont))).headOption
     }
-
-    private def strs(v: JValue) = for {
-      JArray(strs) <- v
-      JString(str) <- strs
-    } yield str
 
     private def containerHostConfig(cont: List[JField]) =
       (for {
