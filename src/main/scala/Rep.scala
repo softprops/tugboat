@@ -221,7 +221,7 @@ object Rep {
       ("Created", JInt(created)) <- cont
       ("Status", JString(stat))  <- cont
     } yield Container(
-      id, img, cmd, created.toLong, stat,
+      id, img, cmd, created.toLong * 1000, stat,
       for {
         ("Ports", JArray(ps))       <- cont
         JObject(port)               <- ps
