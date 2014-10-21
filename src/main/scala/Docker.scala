@@ -50,18 +50,30 @@ object Docker {
         }
   }
 
+  object Stream {
+    /** A interface returned with streamed response to
+     *  programatically stop processing mid-stream */
+    trait Stopper {
+      def stop(): Unit
+    }
+  }
+
   /** extension of completer providing a default rep of the items within
-   *  a streamed response */
+   *  a streamed response.
+   *  todo: add an interface for stoping the stream. */
   abstract class Stream[T: StreamRep] extends Completer {
     type Handler = T => Unit
+
     /** @return a future of unit apply a function, f, to each chunk of the streamed response */
-    def stream(f: Handler): Future[Unit] =
-      apply(streamer(f))
+    def stream(f: Handler): (Stream.Stopper, Future[Unit]) = {
+      val stopper = streamer(f)
+      (stopper, apply(stopper))
+    }
 
     /** @return a function that takes a function to apply to each chunk of a response
      *          and produces a handler for the request's response */
-    protected def streamer: Handler => Docker.Handler[Unit] = { f =>
-      new StringsByLine[Unit] with StreamErrorHandler[Unit] {
+    protected def streamer: Handler => Docker.Handler[Unit] with Stream.Stopper = { f =>
+      new StringsByLine[Unit] with StreamErrorHandler[Unit] with Stream.Stopper {
         def onStringBy(str: String) {
           f(implicitly[StreamRep[T]].map(str))
         }

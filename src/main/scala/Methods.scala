@@ -66,7 +66,8 @@ trait Methods { self: Requests =>
         ++ _until.map( u => ("until"   -> (u / 1000).toString)))
 
     override protected def streamer = { f =>
-      new Strings[Unit] with Docker.StreamErrorHandler[Unit] {
+      new Strings[Unit] with Docker.StreamErrorHandler[Unit]
+        with Docker.Stream.Stopper {
         def onString(str: String) {
           f(implicitly[StreamRep[Event.Record]].map(str.trim))
         }
@@ -432,7 +433,8 @@ trait Methods { self: Requests =>
           val is = new PipedInputStream(os)
           in(os)
           request(req.subject.underlying(_.setBody(new InputStreamBodyGenerator(is))))(
-            new StringsByLine[Unit] with Docker.StreamErrorHandler[Unit] {
+            new StringsByLine[Unit] with Docker.StreamErrorHandler[Unit]
+              with Docker.Stream.Stopper {
               def onStringBy(str: String) = out(str)
               def onCompleted = ()
             })
@@ -497,14 +499,8 @@ trait Methods { self: Requests =>
       private val _registry: Option[String]  = None)
       extends Docker.Stream[tugboat.Pull.Output] {
       override protected def streamer = { f =>
-        /** Like StringsByLine doesn't buffer. The images/create response
-         *  returns chunked encoding by with a no explicit terminator for
-         *  each chunk (typically a newline separator). We are being optimistic
-         *  here in assuming that each logical stream chunk can be encoded
-         *  in a single pack of body part bytes. I don't like this but
-         *  until docker documents this better, this should work in most cases.
-         */
-        new Strings[Unit] with Docker.StreamErrorHandler[Unit] {
+        new Strings[Unit] with Docker.StreamErrorHandler[Unit]
+          with Docker.Stream.Stopper {
           def onString(str: String) {
             f(implicitly[StreamRep[tugboat.Pull.Output]].map(str.trim))
           }

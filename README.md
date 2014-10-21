@@ -19,6 +19,12 @@ TLS_VERIFY  | any non empty string is considered truthy
 
 _note_: the unix domain socket interface is not yet supported but is planned for the future
 
+You can discover this for yourself by typing the following in your terminal
+
+```bash
+$ echo $DOCKER_HOST
+```
+
 Specific API interfaces like `build`, `events`, `logs`, `push` and `pull`, responses are streamed.
 
 Below are some examples of manning your local dock.
@@ -27,6 +33,7 @@ Below are some examples of manning your local dock.
 import scala.concurrent.ExecutionContext.Implicits.global
 
 // create a docker tugboat client
+// you can also provide a host url as an argument
 val docker = tugboat.Docker()
 
 // inspect your station
@@ -49,10 +56,16 @@ docker.images.list().map(_.map(_.id)).foreach(println)
 
 // keep an close eye on activity in your harbor
 import tugboat.Event
-docker.events.stream {
+val (stopper, completeFuture) = docker.events.stream {
   case Event.Record(status, id, from, time) =>
      println(s"container $id: $status")
 }
+
+// ...fire up, start, stop, and remove some containers
+// to terminate the stream, call stop() on the stopper returned by subscribing
+// to the stream
+stopper.stop()
+
 
 // usher a ship out to sea
 // $ docker build -t ssScala path/to/dir/Dockerfile/is/in
