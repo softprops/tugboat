@@ -100,7 +100,7 @@ trait Methods { self: Requests =>
       private val _before: Option[String] = None,
       private val _sizes: Option[Boolean] = None)
       extends Docker.Completion[List[tugboat.Container]] {
-      def all = copy(_all = Some(true))
+      def all(a: Boolean) = copy(_all = Some(a))
       def limit(lim: Int) = copy(_limit = Some(lim))
       def since(s: String) = copy(_since = Some(s))
       def before(b: String) = copy(_before = Some(b))

@@ -141,10 +141,21 @@ case class HostConfig(
   capDrop: Seq[String]                  = Seq.empty)
 
 case class ContainerDetails(
-  id: String, name: String, created: String, path: String, hostnamePath: String, hostsPath: String,
-  args: Seq[String], config: ContainerConfig, state: ContainerState, image: String,
-  networkSettings: NetworkSettings, resolvConfPath: String, volumes: Map[String, String],
-  volumesRW: Map[String, Boolean], hostConfig: HostConfig)
+  id: String,
+  name: String,
+  created: String, // iso-8601 format
+  path: String,
+  hostnamePath: String,
+  hostsPath: String,
+  args: Seq[String],
+  config: ContainerConfig,
+  state: ContainerState,
+  image: String,
+  networkSettings: NetworkSettings,
+  resolvConfPath: String,
+  volumes: Map[String, String],
+  volumesRW: Map[String, Boolean],
+  hostConfig: HostConfig)
 
 case class Record(id: String, created: Long, createdBy: String, size: Long, tags: Seq[String])
 
