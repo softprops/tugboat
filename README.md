@@ -17,6 +17,8 @@ DOCKER_HOST | the tcp host where the docker daemon is bound to
 CERT_PATH   | the base path of were docker tls key.pem, cert.prm, and ca.pem files will be resolved
 TLS_VERIFY  | any non empty string is considered truthy
 
+_note_: the unix domain socket interface is not yet supported but is planned for the future
+
 Specific API interfaces like `build`, `events`, `logs`, `push` and `pull`, responses are streamed.
 
 Below are some examples of manning your local dock.
