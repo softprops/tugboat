@@ -109,7 +109,7 @@ object Docker {
 
   /** the default Http instance may be tls enabled under certain env conditions
    *  defined here https://docs.docker.com/articles/https/#secure-by-default */
-  private[tugboat] val DefaultHttp: Http = {
+  private[tugboat] def defaultHttp(host: String): Http = {
     val certs  = env("CERT_PATH")
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
     val http = new Http
@@ -128,6 +128,8 @@ abstract class Requests(
   protected val authConfig: Option[AuthConfig])
  (protected implicit val ec: ExecutionContext)
   extends Methods {
+
+  protected def client: Http = http
 
   def host = url(hostStr)
 
@@ -152,15 +154,16 @@ abstract class Requests(
 /** Entry point into docker communication */
 case class Docker(
   hostStr: String                       = Docker.DefaultHost,
-  private val http: Http                = Docker.DefaultHttp,
+  private val http: Option[Http]        = None,
   private val _auth: Option[AuthConfig] = None)
  (implicit ec: ExecutionContext)
-  extends Requests(hostStr, http, _auth) {
+  extends Requests(
+    hostStr, http.getOrElse(Docker.defaultHttp(hostStr)), _auth) {
 
   /** see also https://docs.docker.com/articles/https/ */
   def secure(tls: TLS) = copy(
     hostStr = hostStr.replaceFirst("http", "https"),
-    http = http.configure(tls.certify))
+    http = Some(client.configure(tls.certify)))
 
   /** Authenticate requests */
   def as(config: AuthConfig) = copy(_auth = Some(config))
@@ -168,5 +171,5 @@ case class Docker(
   /** releases the underlying http client's resources.
    *  after close() is invoked, all behavior for this
    *  client is undefined */
-  def close() = http.shutdown()
+  def close() = client.shutdown()
 }
