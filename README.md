@@ -17,7 +17,7 @@ libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
 
 ## usage
 
-Tugboat provides interfaces for interacting with docker over http returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is reachable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some environments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
+Tugboat provides interfaces for interacting with a docker daemon over http, returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is resolvable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some docker-ready environments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
 
 Tugboat will work out of the box with various conventional env vars set.
 
@@ -39,37 +39,70 @@ Specific API interfaces like `build`, `events`, `logs`, `push` and `pull`, respo
 
 Below are some examples of manning your local dock.
 
+Since we will be interacting with Scala Future's, an implicit `ExecutionContext` is assumed
+
 ```scala
 import scala.concurrent.ExecutionContext.Implicits.global
+```
 
-// create a docker tugboat client
-// you can also provide a host url as an argument
+Create a docker tugboat client. You may optionally supply your docker daemon's host as
+a constructor argument
+
+```scala
 val docker = tugboat.Docker()
+```
 
-// inspect your station
-// $docker info
+Each operation defined on a docker will define an `apply` interface or a `stream` interface depending no the type of 
+response the docker daemon serves. Apply interfaces, given no argument, will return a Scala representation of the
+resuling json. You may define your'e own handlers for responses as `Response => T` where `T` is the type you wish to return.
+The examples below assume the default Scala representations.
+
+Inspect your station. Identical to the `docker info` command.
+
+```scala
 docker.info().foreach(println)
+```
 
-// print the make and model of docker harbor
-// $ docker version
+Print the make and model of docker harbor. Identical to the `docker version` command.
+
+```scala
 docker.version().foreach(println)
+```
 
-// search the sea of docker images for something that looks like a ship
-// $ docker search ship
-docker.images.search.term("ship")().map(_.map(_.name)).foreach(println)
+Search the sea of docker images for something that looks like a ship. 
+Identical to the `docker search ship` command.
 
-// list the images docked at your station
-// $ docker images
-docker.images.list().map(_.map(_.id)).foreach(println)
+```scala
+docker.images.search
+  .term("ship")().foreach {
+    _.foreach { img =>
+      println(img.name)
+    }
+  }
+```
 
-// be your own shipping port
+List the images docked at your station
+Identical to the  `docker images` command.
 
-// keep an close eye on activity in your harbor
+```scala
+docker.images.list().foreach {
+  _.foreach { image =>
+    println(image.id)
+  }
+}
+```
+
+Be your own shipping port
+
+Keep an close eye on activity in your harbor
+
+```scala
 import tugboat.Event
 val (stopper, completeFuture) = docker.events.stream {
   case Event.Record(status, id, from, time) =>
      println(s"container $id: $status")
 }
+```
 
 // ...fire up, start, stop, and remove some containers
 // to terminate the stream, call stop() on the stopper returned by subscribing
@@ -77,17 +110,22 @@ val (stopper, completeFuture) = docker.events.stream {
 stopper.stop()
 
 
-// usher a ship out to sea
-// $ docker build -t ssScala path/to/dir/Dockerfile/is/in
+Usher a ship out to sea
+Identical to the command `docker build -t ssScala path/to/dir/Dockerfile/is/in`
+
+```scala
 import tugboat.Build 
 docker.images.build(new java.io.File("path/to/dir/Dockerfile/is/in")).tag("ssScala").stream {
   case Build.Progress(prog)   => println(prog)
   case Build.Status(status)   => println(status)
   case Build.Error(err, _, _) => println(err)
 }
+```
 
-// usher foreign ships into harbor
-// $ docker pull captain/ship
+Usher foreign ships into harbor
+Identical to the `docker pull captain/ship` command
+
+```
 import tugboat.Pull
 docker.images.pull("captain/ship").stream {
   case Pull.Status(msg) => println(msg)
@@ -98,16 +136,22 @@ docker.images.pull("captain/ship").stream {
     }
   case Pull.Error(msg, _) =>  println(msg)
 }
+```
 
 
-// verify with the admiral that your captain credentials are still respectable
-// $ docker login -u username -p password -e email
+Verify with the admiral that your captain credentials are still respectable
+Identical to the `docker login -u username -p password -e email` command
+
+```scala
 import tugboat.AuthConfig
 val auth = AuthConfig(user, password, email)
 docker.auth(auth)().foreach(println)
+```
 
-// announce your captainship when issuing orders to the crew
-// $ docker pull internalregistry.com/captain/ship
+Announce your captainship when issuing orders to the crew
+Identical to the `docker pull internalregistry.com/captain/ship` command
+
+```scala
 docker.as(auth).images.pull("captain/ship").registry("internalregistry.com").stream {
   case Pull.Status(msg) => println(msg)
   case Pull.Progress(msg, _, details) =>
@@ -117,42 +161,67 @@ docker.as(auth).images.pull("captain/ship").registry("internalregistry.com").str
     }
   case Pull.Error(msg, _) =>  println(msg)
 }
+```
 
-// fashion a new boat from a dependable stack of material and start the engines
-// $ docker run -p 80:80 captain/ship
+Fashion a new boat from a dependable stack of material and start the engines
+Identical to the `docker run -p 80:80 captain/ship` command
+
+```scala
 (for {
   container <- docker.containers.create("captain/ship")()
   run       <- docker.containers.get(container.id).start.bind(
                tugboat.Port.Tcp(80), tugboat.PortBinding.local(80)
             )()
 } yield container.id).foreach(println)
+```
 
-// produce a roster of ships out to sea
-// $ docker ps
+Produce a roster of ships out to sea
+Identical to the `docker ps` command
+
+```scala
 docker.containers.list().map(_.map(_.id)).foreach(println)
+```
 
-// anchor to a live boat
+
+Anchor to a live boat
+
+```scala
 val ship = docker.containers.get(id)
+```
 
-// inspect the boat
-// $ docker inspect ship
+Inspect the boat.
+Identical to the `docker inspect ship` command
+
+```scala
 ship().foreach(println)
+```
 
-// fetch the the captains logs
-// $ docker logs ship
+Fetch the the captains logs
+Identical to the `docker logs ship` command
+
+```scala
 ship.logs.follow(true).stdout(true).stderr(true).stream(println)
+```
 
-// stop the boat after 5 seconds
-// $ docker stop ship
+Stop the boat after 5 seconds
+Identical to the `docker stop ship` command
+
+```scala
 import scala.concurrent.duration._
 ship.stop(5.seconds)().foreach(println)
+```
 
-// restart the boat in 5 second
-// $ docker restart ship
+Restart the boat in 5 seconds
+Identical to the `docker restart ship` command
+
+```scala
 ship.restart(5.seconds)().foreach(println)
+```
 
-// retire the ship
-// $ docker rm ship
+Eetire the ship
+Identical to the `docker rm ship` command
+
+```scala
 ship.destroy.force(true)().foreach(println)
 ```
 
