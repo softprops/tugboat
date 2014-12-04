@@ -1,9 +1,17 @@
 package tugboat
 
-import com.ning.http.client.{ AsyncHandler, HttpResponseStatus, Response }
+import com.ning.http.client.{ AsyncHandler, AsyncHttpClientConfig, HttpResponseStatus, Response }
+import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.{ Strings, StringsByLine }
 import java.net.URI
+import java.util.concurrent.Executors
+import jnr.unixsocket.{ UnixSocketAddress, UnixSocketChannel }
+import org.jboss.netty.channel.ChannelPipeline
+import org.jboss.netty.channel.socket.{ DefaultSocketChannelConfig, SocketChannel }
+import org.jboss.netty.channel.socket.nio.{
+  DefaultNioSocketChannelConfig, NioSocketChannel, NioClientSocketChannel, NioClientSocketChannelFactory, NioWorkerPool }
+import org.jboss.netty.util.HashedWheelTimer
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
 import scala.util.control.NoStackTrace
@@ -112,7 +120,36 @@ object Docker {
   private[tugboat] def defaultHttp(host: String): Http = {
     val certs  = env("CERT_PATH")
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
-    val http = new Http
+    val http =
+      if (host.startsWith("unix")) new Http().configure { builder =>
+        val config = builder.build()
+        val updatedProvider = config.getAsyncHttpProviderConfig() match {
+          case nettyProvider: NettyAsyncHttpProviderConfig =>
+            val boss = Executors.newCachedThreadPool()
+            val workers = Executors.newCachedThreadPool()
+            val workerPool = new NioWorkerPool(workers, 2 * Runtime.getRuntime().availableProcessors())
+            val timer = new HashedWheelTimer()
+            nettyProvider.addProperty(
+              NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
+              new NioClientSocketChannelFactory(boss, 1, workerPool, timer) {
+                def newChannel(pl: ChannelPipeline) = new SocketChannel() {
+                  val chan = UnixSocketChannel.open(new UnixSocketAddress(new java.io.File(host)))
+                  val cfg = new DefaultSocketChannelConfig(chan)
+                  def getConfig() = cfg
+                  def getLocalAddress() = chan.getLocalSocketAddress
+                  def getRemoteAddress() = chan.getRemoteSocketAddress
+                }
+              //def newChannel(pipeline: ChannelPipeline) = {
+                //                new NioClientSocketChannel(this, pipeline, sink, workerPool.nextWorker())
+              //}
+              })
+          case dunno =>
+            // user has provided an async client non using a netty provider
+            dunno
+        }
+        new AsyncHttpClientConfig.Builder(config).setAsyncHttpClientProviderConfig(updatedProvider)
+      }
+      else new Http
     certs match {
       case Some(path) =>
         def pem(name: String) = s"$path/$name.pem"
