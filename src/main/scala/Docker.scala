@@ -5,7 +5,7 @@ import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.{ Strings, StringsByLine }
 import java.net.URI
-import java.util.concurrent.Executors
+import java.util.concurrent.{ Executors, ThreadFactory }
 import jnr.unixsocket.{ UnixSocketAddress, UnixSocketChannel }
 import org.jboss.netty.channel.ChannelPipeline
 import org.jboss.netty.channel.socket.{ DefaultSocketChannelConfig, SocketChannel }
@@ -129,12 +129,11 @@ object Docker {
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
     val http =
       if (host.startsWith("unix")) new Http().configure { builder =>
-        import java.util.concurrent.{ ThreadFactory, Executors }
         val config = builder.build()
         def shutdown() {
           sockets.releaseExternalResources()
         }
-        lazy val threads = new java.util.concurrent.ThreadFactory {
+        lazy val threads = new ThreadFactory {
           def newThread(runnable: Runnable) = {
             new Thread(runnable) {
               setDaemon(true)
@@ -149,8 +148,8 @@ object Docker {
           Executors.newCachedThreadPool(threads),
           Executors.newCachedThreadPool(threads))
         val updatedProvider = config.getAsyncHttpProviderConfig() match {
-          case nettyProvider: NettyAsyncHttpProviderConfig =>
-            nettyProvider.addProperty(
+          case netty: NettyAsyncHttpProviderConfig =>
+            netty.addProperty(
               NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
               sockets
             )
