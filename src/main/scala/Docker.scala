@@ -113,7 +113,7 @@ object Docker {
     host  <- env("HOST")
     uri <- allCatch.opt(new URI(host))
   } yield s"${if(2376 == uri.getPort) "https" else "http"}://${uri.getHost}:${uri.getPort}").getOrElse(
-    "http://localhost:2375"
+    "unix:///var/run/docker.sock"
   )
 
   private[tugboat] def host(hostStr: String): Req =
@@ -121,14 +121,13 @@ object Docker {
       Req(identity).setVirtualHost(hostStr).setProxyServer(new ProxyServer(hostStr, 80))
     } else url(hostStr)
 
-
   /** the default Http instance may be tls enabled under certain env conditions
    *  defined here https://docs.docker.com/articles/https/#secure-by-default */
   private[tugboat] def defaultHttp(host: String): Http = {
     val certs  = env("CERT_PATH")
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
     val http =
-      if (host.startsWith("unix")) new Http().configure { builder =>
+      if (host.startsWith("unix://")) new Http().configure { builder =>
         val config = builder.build()
         def shutdown() {
           sockets.releaseExternalResources()
