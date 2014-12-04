@@ -216,9 +216,12 @@ object Rep {
           JObject(version) <- as.json4s.Json(r)
           ("ApiVersion", JString(api)) <- version
           ("Version", JString(ver))    <- version
-          ("GitCommit", JString(git))  <- version
           ("GoVersion", JString(go))   <- version
-        } yield Version(api, ver, git, go)).head
+        } yield Version(api, ver, (for {
+          ("GitCommit", JInt(git))    <- version
+        } yield git.toString).headOption.orElse((for {
+          ("GitCommit", JString(git)) <- version
+        } yield git).headOption).get, go)).head
       }
     }
 
