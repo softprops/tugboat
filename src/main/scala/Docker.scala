@@ -129,8 +129,10 @@ object Docker {
     val http =
       if (host.startsWith("unix://")) new Http().configure { builder =>
         val config = builder.build()
+        lazy val timer = new HashedWheelTimer()
         def shutdown() {
           sockets.releaseExternalResources()
+          timer.stop()
         }
         lazy val threads = new ThreadFactory {
           def newThread(runnable: Runnable) = {
@@ -145,7 +147,8 @@ object Docker {
         }
         lazy val sockets = new ClientUdsSocketChannelFactory(
           Executors.newCachedThreadPool(threads),
-          Executors.newCachedThreadPool(threads))
+          Executors.newCachedThreadPool(threads),
+          timer)
         val updatedProvider = config.getAsyncHttpProviderConfig() match {
           case netty: NettyAsyncHttpProviderConfig =>
             netty.addProperty(
