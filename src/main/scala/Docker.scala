@@ -1,6 +1,6 @@
 package tugboat
 
-import com.ning.http.client.{ AsyncHandler, AsyncHttpClientConfig, HttpResponseStatus, Response }
+import com.ning.http.client.{ AsyncHandler, AsyncHttpClientConfig, HttpResponseStatus, ProxyServer, Response }
 import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.{ Strings, StringsByLine }
@@ -15,6 +15,7 @@ import org.jboss.netty.util.HashedWheelTimer
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
 import scala.util.control.NoStackTrace
+import unisockets.netty.ClientUdsSocketChannelFactory
 
 object Docker {
 
@@ -115,6 +116,12 @@ object Docker {
     "http://localhost:2375"
   )
 
+  private[tugboat] def host(hostStr: String): Req =
+    if (hostStr.startsWith("unix://")) {
+      Req(identity).setVirtualHost(hostStr).setProxyServer(new ProxyServer(hostStr, 80))
+    } else url(hostStr)
+
+
   /** the default Http instance may be tls enabled under certain env conditions
    *  defined here https://docs.docker.com/articles/https/#secure-by-default */
   private[tugboat] def defaultHttp(host: String): Http = {
@@ -122,27 +129,31 @@ object Docker {
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
     val http =
       if (host.startsWith("unix")) new Http().configure { builder =>
+        import java.util.concurrent.{ ThreadFactory, Executors }
         val config = builder.build()
+        def shutdown() {
+          sockets.releaseExternalResources()
+        }
+        lazy val threads = new java.util.concurrent.ThreadFactory {
+          def newThread(runnable: Runnable) = {
+            new Thread(runnable) {
+              setDaemon(true)
+              override def interrupt() {
+                shutdown()
+                super.interrupt()
+              }
+            }
+          }
+        }
+        lazy val sockets = new ClientUdsSocketChannelFactory(
+          Executors.newCachedThreadPool(threads),
+          Executors.newCachedThreadPool(threads))
         val updatedProvider = config.getAsyncHttpProviderConfig() match {
           case nettyProvider: NettyAsyncHttpProviderConfig =>
-            val boss = Executors.newCachedThreadPool()
-            val workers = Executors.newCachedThreadPool()
-            val workerPool = new NioWorkerPool(workers, 2 * Runtime.getRuntime().availableProcessors())
-            val timer = new HashedWheelTimer()
             nettyProvider.addProperty(
               NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
-              new NioClientSocketChannelFactory(boss, 1, workerPool, timer) {
-                def newChannel(pl: ChannelPipeline) = new SocketChannel() {
-                  val chan = UnixSocketChannel.open(new UnixSocketAddress(new java.io.File(host)))
-                  val cfg = new DefaultSocketChannelConfig(chan)
-                  def getConfig() = cfg
-                  def getLocalAddress() = chan.getLocalSocketAddress
-                  def getRemoteAddress() = chan.getRemoteSocketAddress
-                }
-              //def newChannel(pipeline: ChannelPipeline) = {
-                //                new NioClientSocketChannel(this, pipeline, sink, workerPool.nextWorker())
-              //}
-              })
+              sockets
+            )
           case dunno =>
             // user has provided an async client non using a netty provider
             dunno
@@ -161,14 +172,12 @@ object Docker {
 }
 
 abstract class Requests(
-  hostStr: String, http: Http,
+  val host: Req, http: Http,
   protected val authConfig: Option[AuthConfig])
  (protected implicit val ec: ExecutionContext)
   extends Methods {
 
   protected def client: Http = http
-
-  def host = url(hostStr)
 
   def request[T]
    (req: Req)
@@ -195,7 +204,7 @@ case class Docker(
   private val _auth: Option[AuthConfig] = None)
  (implicit ec: ExecutionContext)
   extends Requests(
-    hostStr, http.getOrElse(Docker.defaultHttp(hostStr)), _auth) {
+    Docker.host(hostStr), http.getOrElse(Docker.defaultHttp(hostStr)), _auth) {
 
   /** see also https://docs.docker.com/articles/https/ */
   def secure(tls: TLS) = copy(
