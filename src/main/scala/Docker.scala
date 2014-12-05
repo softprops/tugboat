@@ -59,8 +59,8 @@ object Docker {
     def apply(): Future[T] =
       apply(implicitly[Rep[T]].map)
     /** @return a future transformed by Response => T*/
-    def apply[T]
-      (f: Response => T): Future[T] =
+    def apply[TT]
+      (f: Response => TT): Future[TT] =
         apply(new FunctionHandler(f) {
           override def onCompleted(response: Response) = {
             if (response.getStatusCode / 100 == 2) f(response)
