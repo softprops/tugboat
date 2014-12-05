@@ -6,6 +6,7 @@ import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.{ Strings, StringsByLine }
 import java.net.URI
 import java.util.concurrent.{ Executors, ThreadFactory }
+import java.util.concurrent.atomic.AtomicBoolean
 import jnr.unixsocket.{ UnixSocketAddress, UnixSocketChannel }
 import org.jboss.netty.channel.ChannelPipeline
 import org.jboss.netty.channel.socket.{ DefaultSocketChannelConfig, SocketChannel }
@@ -22,7 +23,19 @@ object Docker {
   case class Error(code: Int, message: String)
     extends RuntimeException(message) with NoStackTrace
 
+  object Closed extends RuntimeException("client is closed") with NoStackTrace
+
   type Handler[T] = AsyncHandler[T]
+
+  trait Closer {
+    def close()
+  }
+  object Closer {
+    def apply(closer: => Unit): Closer =
+      new Closer {
+        def close() = closer
+      }
+  }
 
   private[tugboat] trait StreamErrorHandler[T]
     extends AsyncHandler[T] { self: AsyncHandler[T] =>
@@ -90,8 +103,7 @@ object Docker {
   }
 
   /** extension of completer providing a default rep of the items within
-   *  a streamed response.
-   *  todo: add an interface for stoping the stream. */
+   *  a streamed response. */
   abstract class Stream[T: StreamRep] extends Completer {
     type Handler = T => Unit
 
@@ -123,19 +135,26 @@ object Docker {
 
   /** the default Http instance may be tls enabled under certain env conditions
    *  defined here https://docs.docker.com/articles/https/#secure-by-default */
-  private[tugboat] def defaultHttp(host: String): Http = {
+  private[tugboat] def http(host: String): (Http, Closer) = {
     val certs  = env("CERT_PATH")
     val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
     val http =
-      if (host.startsWith("unix://")) new Http().configure { builder =>
-        val config = builder.build()
-        lazy val timer = new HashedWheelTimer()
-        def shutdown() {
-          sockets.releaseExternalResources()
-          timer.stop()
-        }
+      if (host.startsWith("unix://")) {
+        lazy val closed = new AtomicBoolean(false)
+        lazy val timer = new HashedWheelTimer(new ThreadFactory {
+          def newThread(runnable: Runnable): Thread =
+            new Thread(runnable) {
+              setDaemon(true)
+            }
+        })
+        def shutdown(): Unit =
+          if (closed.compareAndSet(false, true)) {
+            sockets.releaseExternalResources()
+            timer.stop()
+          }
+
         lazy val threads = new ThreadFactory {
-          def newThread(runnable: Runnable) = {
+          def newThread(runnable: Runnable) =
             new Thread(runnable) {
               setDaemon(true)
               override def interrupt() {
@@ -143,29 +162,42 @@ object Docker {
                 super.interrupt()
               }
             }
+        }
+        lazy val sockets =
+          new ClientUdsSocketChannelFactory(
+            Executors.newCachedThreadPool(threads),
+            Executors.newCachedThreadPool(threads),
+            timer
+          )
+        val http0 = new Http().configure { builder =>
+          val config = builder.build()
+          val updatedProvider = config.getAsyncHttpProviderConfig match {
+            case netty: NettyAsyncHttpProviderConfig =>
+              netty.addProperty(
+                NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
+                sockets
+              )
+              netty.setNettyTimer(timer)
+              netty
+            case dunno =>
+              // user has provided an async client non using a netty provider
+              dunno
           }
+          new AsyncHttpClientConfig.Builder(config).setAsyncHttpClientProviderConfig(updatedProvider)
         }
-        lazy val sockets = new ClientUdsSocketChannelFactory(
-          Executors.newCachedThreadPool(threads),
-          Executors.newCachedThreadPool(threads),
-          timer)
-        val updatedProvider = config.getAsyncHttpProviderConfig() match {
-          case netty: NettyAsyncHttpProviderConfig =>
-            netty.addProperty(
-              NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
-              sockets
-            )
-          case dunno =>
-            // user has provided an async client non using a netty provider
-            dunno
-        }
-        new AsyncHttpClientConfig.Builder(config).setAsyncHttpClientProviderConfig(updatedProvider)
+        (http0, Closer {
+          shutdown()
+          http0.shutdown()
+        })
       }
-      else new Http
-    certs match {
-      case Some(path) =>
+      else {
+        val http0 = new Http
+        (http0, Closer(http0.shutdown()))
+      }
+    (certs, http) match {
+      case (Some(path), (client, closer)) =>
         def pem(name: String) = s"$path/$name.pem"
-        http.configure(TLS(pem("key"), pem("cert"), Some(pem("ca")).filter(_ => verify)).certify)
+        (client.configure(TLS(pem("key"), pem("cert"), Some(pem("ca")).filter(_ => verify)).certify), closer)
       case _ =>
         http
     }
@@ -173,17 +205,23 @@ object Docker {
 }
 
 abstract class Requests(
-  val host: Req, http: Http,
+  val host: Req, http: (Http, Docker.Closer),
   protected val authConfig: Option[AuthConfig])
  (protected implicit val ec: ExecutionContext)
   extends Methods {
 
-  protected def client: Http = http
+  protected val (client, closer) = http
+
+  /** releases the underlying http client's resources.
+   *  after close() is invoked, all behavior for this
+   *  client is undefined */
+  def close() = closer.close()
 
   def request[T]
    (req: Req)
    (handler: Docker.Handler[T]): Future[T] =
-    http(req <:< Docker.DefaultHeaders > handler)
+    if (client.client.isClosed) Future.failed(Docker.Closed)
+    else client(req <:< Docker.DefaultHeaders > handler)
 
   def stream[A: StreamRep](req: Req): Docker.Stream[A] =
     new Docker.Stream[A] {
@@ -200,23 +238,18 @@ abstract class Requests(
 
 /** Entry point into docker communication */
 case class Docker(
-  hostStr: String                       = Docker.DefaultHost,
-  private val http: Option[Http]        = None,
-  private val _auth: Option[AuthConfig] = None)
+  hostStr: String                                 = Docker.DefaultHost,
+  private val http: Option[(Http, Docker.Closer)] = None,
+  private val _auth: Option[AuthConfig]           = None)
  (implicit ec: ExecutionContext)
   extends Requests(
-    Docker.host(hostStr), http.getOrElse(Docker.defaultHttp(hostStr)), _auth) {
+    Docker.host(hostStr), http.getOrElse(Docker.http(hostStr)), _auth) {
 
   /** see also https://docs.docker.com/articles/https/ */
   def secure(tls: TLS) = copy(
     hostStr = hostStr.replaceFirst("http", "https"),
-    http = Some(client.configure(tls.certify)))
+    http = Some((client.configure(tls.certify), Docker.Closer(close))))
 
   /** Authenticate requests */
   def as(config: AuthConfig) = copy(_auth = Some(config))
-
-  /** releases the underlying http client's resources.
-   *  after close() is invoked, all behavior for this
-   *  client is undefined */
-  def close() = client.shutdown()
 }

@@ -6,7 +6,7 @@ version := "0.1.1-SNAPSHOT"
 
 description := "a small boat that maneuvers docker vessels"
 
-crossScalaVersions ++= Seq("2.10.4", "2.11.2")
+crossScalaVersions ++= Seq("2.10.4", "2.11.4")
 
 scalaVersion := crossScalaVersions.value.last
 
@@ -20,7 +20,8 @@ libraryDependencies ++= Seq(
 //  "org.bouncycastle" % "bcpg-jdk15on" % "1.51",
   "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.2",
   "org.kamranzafar" % "jtar" % "2.2",
-  "me.lessis" %% "unisockets-netty" % "0.1.0-SNAPSHOT")
+  "me.lessis" %% "unisockets-netty" % "0.1.0-SNAPSHOT",
+  "org.slf4j" % "slf4j-log4j12" % "1.6.2") // testing/debugging
 
 initialCommands := "import scala.concurrent.ExecutionContext.Implicits.global; val docker = tugboat.Docker()"
 
