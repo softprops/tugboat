@@ -165,6 +165,7 @@ case class Change(path: String, kind: Int)
 
 case class Status(code: Int)
 
+// fixme: rename repoTags to something like tags or repositories
 case class Image(
   id: String, created: Long, size: Long, virtualSize: Long,
   repoTags: List[String] = Nil, parent: Option[String] = None)
