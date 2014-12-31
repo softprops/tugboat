@@ -183,7 +183,8 @@ object Docker {
               // user has provided an async client non using a netty provider
               dunno
           }
-          new AsyncHttpClientConfig.Builder(config).setAsyncHttpClientProviderConfig(updatedProvider)
+          new AsyncHttpClientConfig.Builder(config)
+            .setAsyncHttpClientProviderConfig(updatedProvider)
         }
         (http0, Closer {
           shutdown()
