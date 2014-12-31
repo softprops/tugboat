@@ -122,8 +122,8 @@ object Docker {
   private[tugboat] val UserAgent = s"tugboat/${BuildInfo.version}"
   private[tugboat] val DefaultHeaders = Map("User-Agent" -> UserAgent)
   private[tugboat] val DefaultHost = (for {
-    host  <- env("HOST")
-    uri <- allCatch.opt(new URI(host))
+    host <- env("HOST")
+    uri  <- allCatch.opt(new URI(host))
   } yield s"${if(2376 == uri.getPort) "https" else "http"}://${uri.getHost}:${uri.getPort}").getOrElse(
     "unix:///var/run/docker.sock"
   )
@@ -137,7 +137,7 @@ object Docker {
    *  defined here https://docs.docker.com/articles/https/#secure-by-default */
   private[tugboat] def http(host: String): (Http, Closer) = {
     val certs  = env("CERT_PATH")
-    val verify = env("TLS_VERIFY").filter(_.nonEmpty).isDefined
+    val verify = env("TLS_VERIFY").exists(_.nonEmpty)
     val http =
       if (host.startsWith("unix://")) {
         lazy val closed = new AtomicBoolean(false)
