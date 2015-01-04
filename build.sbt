@@ -20,7 +20,7 @@ libraryDependencies ++= Seq(
 //  "org.bouncycastle" % "bcpg-jdk15on" % "1.51",
   "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.2",
   "org.kamranzafar" % "jtar" % "2.2",
-  "me.lessis" %% "unisockets-netty" % "0.1.0-SNAPSHOT",
+  "me.lessis" %% "unisockets-netty" % "0.1.0",
   "org.slf4j" % "slf4j-log4j12" % "1.6.2") // testing/debugging
 
 initialCommands := "import scala.concurrent.ExecutionContext.Implicits.global; val docker = tugboat.Docker()"
