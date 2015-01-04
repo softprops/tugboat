@@ -291,7 +291,7 @@ object Rep {
       } yield warn)).head }
     }
 
-  implicit object ContainerDetail extends Rep[Option[ContainerDetails]] 
+  implicit object ContainerDetail extends Rep[ContainerDetails]
     with Common {
     private[this] val KeyVal = """(.+)=(.+)""".r
 
@@ -322,7 +322,7 @@ object Rep {
         ("VolumesRW", JObject(volumes)) <- cont
         (vol, JBool(rw)) <- volumes
       } yield (vol, rw)).toMap,
-      containerHostConfig(cont))).headOption
+      containerHostConfig(cont))).head
     }
 
     private def containerHostConfig(cont: List[JField]) =

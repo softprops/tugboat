@@ -231,7 +231,7 @@ trait Methods { self: Requests =>
     }
 
     case class Container(id: String)
-      extends Docker.Completion[Option[ContainerDetails]] {
+      extends Docker.Completion[ContainerDetails] {
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#start-a-container */
       case class Start(_config: HostConfig)
