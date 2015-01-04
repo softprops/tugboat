@@ -5,13 +5,8 @@ import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig
 import dispatch.{ FunctionHandler, Http, Req, StatusCode, url, :/ }
 import dispatch.stream.{ Strings, StringsByLine }
 import java.net.URI
-import java.util.concurrent.{ Executors, ThreadFactory }
+import java.util.concurrent.{ ExecutionException, Executors, ThreadFactory }
 import java.util.concurrent.atomic.AtomicBoolean
-import jnr.unixsocket.{ UnixSocketAddress, UnixSocketChannel }
-import org.jboss.netty.channel.ChannelPipeline
-import org.jboss.netty.channel.socket.{ DefaultSocketChannelConfig, SocketChannel }
-import org.jboss.netty.channel.socket.nio.{
-  DefaultNioSocketChannelConfig, NioSocketChannel, NioClientSocketChannel, NioClientSocketChannelFactory, NioWorkerPool }
 import org.jboss.netty.util.HashedWheelTimer
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.allCatch
@@ -69,7 +64,7 @@ object Docker {
               if (response.hasResponseBody) response.getResponseBody else "")
           }
         }).recoverWith {
-          case ee: java.util.concurrent.ExecutionException =>
+          case ee: ExecutionException =>
             Future.failed(ee.getCause)
         }
   }
