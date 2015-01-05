@@ -19,7 +19,7 @@ libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
 
 Tugboat provides interfaces for interacting with a docker daemon over http, returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is resolvable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some docker-ready environments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
 
-Tugboat will work out of the box assuming a unix socket `unix:///var/run/docker.sock` but will adapt when various conventional env vars set.
+Tugboat will work out of the box communicating with a local docker daemon over a unix domain socket `unix:///var/run/docker.sock` but will adapt when various conventional env vars set.
 
 name        | value
 ------------|--------------------------------------------------------------------------------------
