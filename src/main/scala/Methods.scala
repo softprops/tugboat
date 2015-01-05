@@ -84,13 +84,13 @@ trait Methods { self: Requests =>
   object containers {
     private[this] def base = host / "containers"
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#list-containers */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#list-containers */
     case class Containers(
       private val _all: Option[Boolean]   = None,
       private val _limit: Option[Int]     = None,
       private val _since: Option[String]  = None,
       private val _before: Option[String] = None,
-      private val _sizes: Option[Boolean] = None)
+      private val _sizes: Option[Boolean] = None) // todo: filters exited & status
       extends Docker.Completion[List[tugboat.Container]] {
       def all(a: Boolean) = copy(_all = Some(a))
       def limit(lim: Int) = copy(_limit = Some(lim))
@@ -109,7 +109,7 @@ trait Methods { self: Requests =>
           ++ _sizes.map(("size"    -> _.toString)))
     }    
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#create-a-container */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#create-a-container */
     case class Create(
       private val _config: ContainerConfig,
       private val _name: Option[String]                 = None,
@@ -123,33 +123,42 @@ trait Methods { self: Requests =>
       def withConfig(f: ContainerConfig => ContainerConfig) =
         config(f(_config))
 
+      /** String value containing the image name to use for the container */
       def image(img: String) =
         withConfig(_.copy(image = img))
 
+      /** Boolean value, attaches to stdin */
       def attachStdin(in: Boolean) =
         withConfig(_.copy(attachStdin = in))
 
+      /** Boolean value, attaches to stdout. */
       def attachStdout(out: Boolean) =
         withConfig(_.copy(attachStdout = out))
 
+      /** Boolean value, attaches to stderr. */
       def attachStderr(err: Boolean) =
         withConfig(_.copy(attachStderr = err))
 
+      /** Command to run specified as a string or an array of strings */
       def cmd(args: String*) =
         withConfig(_.copy(cmd = args.toSeq))
 
+      /** An integer value containing the CPU Shares for container (ie. the relative weight vs othercontainers) */
       def cpuShares(cpu: Int) =
         withConfig(_.copy(cpuShares = cpu))
 
+      /** String value containg the cgroups Cpuset to use */
       def cpuSet(set: String) =
         withConfig(_.copy(cpuSet = set))
 
       def domainName(name: String) =
         withConfig(_.copy(domainName = name))
 
+      /** Set the entrypoint for the container a a string or an array of strings */
       def entryPoint(ep: String*) =
         withConfig(_.copy(entryPoint = ep.toSeq))
 
+      /** A list of environment variables */
       def env(vars: (String, String)*) =
         withConfig(_.copy(env = vars.toMap))
 
@@ -160,30 +169,38 @@ trait Methods { self: Requests =>
       def hostname(name: String) =
         withConfig(_.copy(hostname = name))
 
+      /** Memory limit in bytes */
       def memory(mem: Long) =
         withConfig(_.copy(memory = mem))
 
+      /**  Total memory usage (memory + swap); set -1 to disable swap */
       def memorySwap(swap: Long) =
         withConfig(_.copy(memorySwap = swap))
 
+      /** Boolean value, when true disables neworking for the container */
       def networkDisabled(dis: Boolean) =
         withConfig(_.copy(networkDisabled = dis))
 
+      /** Boolean value, opens stdin */
       def openStdin(in: Boolean) =
         withConfig(_.copy(openStdin = in))
 
+      /**  Boolean value, close stdin after the 1 attached client disconnects */
       def stdinOnce(once: Boolean) =
         withConfig(_.copy(stdinOnce = once))
 
       def user(u: String) =
         withConfig(_.copy(user = u))
 
+      /**  Boolean value, Attach standard streams to a tty, including stdin if it is not closed. */
       def tty(is: Boolean) =
         withConfig(_.copy(tty = is))
 
+      /** An object mapping mountpoint paths (strings) inside the container to empty objects. */
       def volumes(vx: String*) =
         withConfig(_.copy(volumes = vx.toSeq))
 
+      /**  A string value containing the working dir for commands to run in. */
       def workingDir(dir: String) =
         withConfig(_.copy(workingDir = dir))
         
@@ -230,6 +247,7 @@ trait Methods { self: Requests =>
         }))
     }
 
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#inspect-a-container */
     case class Container(id: String)
       extends Docker.Completion[ContainerDetails] {
 
@@ -312,12 +330,13 @@ trait Methods { self: Requests =>
          def query = Map.empty[String, String] ++ _signal.map(("signal" -> _))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-container-logs */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#get-container-logs */
       case class Logs(
         private val _follow: Option[Boolean]     = None,
         private val _stdout: Option[Boolean]     = None,
         private val _stderr: Option[Boolean]     = None,
-        private val _timestamps: Option[Boolean] = None)
+        private val _timestamps: Option[Boolean] = None,
+        private val _tail: Option[String]        = None)
         extends Docker.Stream[String] {
 
         def stdout(b: Boolean) = copy(_stdout = Some(b))
@@ -328,6 +347,10 @@ trait Methods { self: Requests =>
 
         def follow(fol: Boolean) = copy(_follow = Some(fol))
 
+        def tail(lines: Int) = copy(_tail = Some(lines.toString))
+
+        def tailAll = copy(_tail = Some("all"))
+
         def apply[T](handler: Docker.Handler[T]) =
           request(base / id / "logs" <<? query)(handler)
 
@@ -336,7 +359,8 @@ trait Methods { self: Requests =>
              ++ _follow.map(("follow" -> _.toString))
              ++ _stdout.map(("stdout" -> _.toString))
              ++ _stderr.map(("stderr" -> _.toString))
-             ++ _timestamps.map(("timestamps" -> _.toString)))
+             ++ _timestamps.map(("timestamps" -> _.toString))
+             ++ _tail.map(("tail" -> _)))
       }
 
       case class Delete(
@@ -358,40 +382,40 @@ trait Methods { self: Requests =>
       def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#list-processes-running-inside-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#list-processes-running-inside-a-container */
       def top(args: String = "") =
         complete[Top](base / id / "top" <<? Map("ps_args" -> args))
       
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-container-logs */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#get-container-logs */
       def logs = Logs()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#inspect-changes-on-a-containers-filesystem */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#inspect-changes-on-a-containers-filesystem */
       def changes =
         complete[List[Change]](base / id / "changes")
       
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#export-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#export-a-container */
       def export(toFile: File) =
         request(base / id / "export")(dispatch.as.File(toFile))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#start-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#start-a-container */
       def start = Start(HostConfig())
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#stop-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#stop-a-container */
       def stop(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "stop" <<? Map("t" -> after.toString))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#restart-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#restart-a-container */
       def restart(after: FiniteDuration = 0.seconds) =
         complete[Unit](base.POST / id / "restart" <<? Map("t" -> after.toString))
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#kill-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#kill-a-container */
       def kill = Kill()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#pause-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#pause-a-container */
       def pause =
         complete[Unit](base.POST / id / "pause")
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#unpause-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#unpause-a-container */
       def unpause =
         complete[Unit](base.POST / id / "unpause")
 
@@ -436,15 +460,15 @@ trait Methods { self: Requests =>
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#attach-to-a-container */
       //def attach = Attach()
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#wait-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#wait-a-container */
       def await =
         complete[Status](base.POST / id / "wait")
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#remove-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#remove-a-container */
       def delete = Delete()
 
       // todo: octet stream
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#copy-files-or-folders-from-a-container */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#copy-files-or-folders-from-a-container */
      /* def cp(resource: String) = new Docker.Stream[Unit] {
         def apply[T](handler: Docker.Handler[T]) =
           request(base.POST / id / "copy")(handler)
@@ -482,7 +506,7 @@ trait Methods { self: Requests =>
           ++ _filters.map("filters" -> json.str(_)))
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.12/#create-an-image */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#create-an-image */
     case class Pull(
       private val _fromImage: String,
       private val _fromSrc: Option[String]   = None,
@@ -513,7 +537,7 @@ trait Methods { self: Requests =>
     case class Image(id: String)
       extends Docker.Completion[Option[ImageDetails]] {
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#push-an-image-on-the-registry */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#push-an-image-on-the-registry */
       case class Push(
         _registry: Option[String] = None)
         extends Docker.Stream[tugboat.Push.Output] {
@@ -528,7 +552,7 @@ trait Methods { self: Requests =>
                   ++ _registry.map(("registry" -> _))))(handler)
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#tag-an-image-into-a-repository */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#tag-an-image-into-a-repository */
       case class Tag(
         _repo: Option[String]   = None,
         _force: Option[Boolean] = None)
@@ -544,7 +568,7 @@ trait Methods { self: Requests =>
             ++ _force.map(("force" -> _.toString)))
       }
        
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#remove-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#remove-an-image */
       case class Delete(
         private val _force: Option[Boolean]   = None,
         private val _noprune: Option[Boolean] = None)
@@ -560,11 +584,11 @@ trait Methods { self: Requests =>
             ++ _noprune.map(("noprune" -> _.toString)))
       }
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#inspect-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#inspect-an-image */
       def apply[T](handler: Docker.Handler[T]) =
         request(base / id / "json")(handler)
 
-      /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#get-the-history-of-an-image */
+      /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#get-the-history-of-an-image */
       def history = complete[List[Record]](base / id / "history")
 
       // todo insert stream
@@ -579,7 +603,7 @@ trait Methods { self: Requests =>
       def delete = Delete()
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#search-images */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#search-images */
     case class Search(
       private val _term: Option[String] = None)
       extends Docker.Completion[List[SearchResult]] {
@@ -588,7 +612,7 @@ trait Methods { self: Requests =>
         request(base / "search" <<? _term.map(("term" -> _)))(handler)
     }
 
-    /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#build-an-image-from-dockerfile-via-stdin */
+    /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#build-an-image-from-dockerfile-via-stdin */
     case class Build(
       path: File,
       private val _tag: Option[String]      = None,
