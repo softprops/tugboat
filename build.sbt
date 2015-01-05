@@ -48,8 +48,8 @@ externalResolvers in LsKeys.lsync := (resolvers in bintray.Keys.bintray).value
 
 pomExtra := (
   <scm>
-    <url>git@github.com:softprops/tugboat.git</url>
-    <connection>scm:git:git@github.com:softprops/tugboat.git</connection>
+    <url>git@github.com:softprops/{name.value}.git</url>
+    <connection>scm:git:git@github.com:softprops/{name.value}.git</connection>
   </scm>
   <developers>
     <developer>
@@ -57,4 +57,4 @@ pomExtra := (
       <name>Doug Tangren</name>
       <url>https://github.com/softprops</url>
     </developer>
-  </developers>)
+  </developers><url>https://github.com/softprops/{name.value}</url>)
