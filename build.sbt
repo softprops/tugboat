@@ -36,11 +36,11 @@ buildInfoPackage := "tugboat"
 licenses := Seq(
   ("MIT", url(s"https://github.com/softprops/${name.value}/blob/${version.value}/LICENSE")))
 
-seq(bintraySettings:_*)
+bintraySettings
 
 bintray.Keys.packageLabels in bintray.Keys.bintray := Seq("docker", "containers")
 
-seq(lsSettings:_*)
+lsSettings
 
 LsKeys.tags in LsKeys.lsync := (bintray.Keys.packageLabels in bintray.Keys.bintray).value
 
