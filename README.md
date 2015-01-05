@@ -19,7 +19,7 @@ libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
 
 Tugboat provides interfaces for interacting with a docker daemon over http, returning Scala [Futures](http://www.scala-lang.org/api/current/index.html#scala.concurrent.Future) containing docker responses. This requires docker is resolvable via tcp. See the docker [documentation](https://docs.docker.com/articles/basics/#bind-docker-to-another-hostport-or-a-unix-socket) on how to set this up. In some docker-ready environments like [boot2docker](https://github.com/boot2docker/boot2docker), this is the default.
 
-Tugboat will work out of the box with various conventional env vars set.
+Tugboat will work out of the box assuming a unix socket `unix:///var/run/docker.sock` but will adapt when various conventional env vars set.
 
 name        | value
 ------------|--------------------------------------------------------------------------------------
@@ -27,9 +27,7 @@ DOCKER_HOST | the tcp host where the docker daemon is bound to
 CERT_PATH   | the base path of were docker tls key.pem, cert.pem, and ca.pem files will be resolved
 TLS_VERIFY  | any non empty string is considered truthy
 
-_note_: the unix domain socket interface is not yet supported but is planned for the future
-
-You can discover this for yourself by typing the following in your terminal
+You can discover the values for these yourself by typing the following in your terminal
 
 ```bash
 $ echo $DOCKER_HOST
@@ -57,6 +55,8 @@ response the docker daemon serves. Apply interfaces, given no argument, will ret
 resuling json. You may define your'e own handlers for responses as `Response => T` where `T` is the type you wish to return.
 The examples below assume the default Scala representations.
 
+### meta
+
 Inspect your station. Identical to the `docker info` command.
 
 ```scala
@@ -68,6 +68,8 @@ Print the make and model of docker harbor. Identical to the `docker version` com
 ```scala
 docker.version().foreach(println)
 ```
+
+### images and containers
 
 Search the sea of docker images for something that looks like a ship. 
 Identical to the `docker search ship` command.
@@ -108,7 +110,6 @@ val (stopper, completeFuture) = docker.events.stream {
 // to terminate the stream, call stop() on the stopper returned by subscribing
 // to the stream
 stopper.stop()
-
 
 Usher a ship out to sea
 Identical to the command `docker build -t ssScala path/to/dir/Dockerfile/is/in`
@@ -225,4 +226,4 @@ Identical to the `docker rm ship` command
 ship.destroy.force(true)().foreach(println)
 ```
 
-Doug Tangren (softprops) 2014
+Doug Tangren (softprops) 2014-2015
