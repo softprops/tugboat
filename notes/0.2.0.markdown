@@ -1,0 +1,7 @@
+## enhancements
+
+- unix domain socket support via [unisockets](https://github.com/softprops/unisockets#readme) 
+
+Tugboat now works out of the box(!) with default [Docker](https://www.docker.com/) installations listening on `unix:///var/run/docker.sock`. Tugboat will still respect conventional ([osx](https://docs.docker.com/installation/mac/) + [boot2docker](https://github.com/boot2docker/boot2docker)) Docker env configuration variables to conditionally connect to a tcp socket defined by `$DOCKER_HOST`
+
+For more information see the project's [readme](https://github.com/softprops/tugboat#readme)
