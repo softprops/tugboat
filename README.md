@@ -12,7 +12,7 @@ Add the following to your sbt project definition
 ```scala
 resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven"
 
-libraryDependencies += "me.lessis" %% "tugboat" % "0.1.0"
+libraryDependencies += "me.lessis" %% "tugboat" % "0.2.0"
 ```
 
 ## usage
