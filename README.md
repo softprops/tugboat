@@ -21,11 +21,11 @@ Tugboat provides interfaces for interacting with a docker daemon over http, retu
 
 Tugboat will work out of the box communicating with a local docker daemon over a unix domain socket `unix:///var/run/docker.sock` but will adapt when various conventional env vars set.
 
-name        | value
-------------|--------------------------------------------------------------------------------------
-DOCKER_HOST | the tcp host where the docker daemon is bound to
-CERT_PATH   | the base path of were docker tls key.pem, cert.pem, and ca.pem files will be resolved
-TLS_VERIFY  | any non empty string is considered truthy
+name               | value
+-------------------|--------------------------------------------------------------------------------------
+DOCKER_HOST        | the tcp host where the docker daemon is bound to
+DOCKER_CERT_PATH   | the base path of were docker tls key.pem, cert.pem, and ca.pem files will be resolved
+DOCKER_TLS_VERIFY  | any non empty string is considered truthy
 
 You can discover the values for these yourself by typing the following in your terminal
 
