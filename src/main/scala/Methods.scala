@@ -444,11 +444,8 @@ trait Methods { self: Requests =>
              ++ _stderr.map(("stderr" -> _.toString)))
 
         /** todo: consider processIO https://github.com/scala/scala/blob/v2.11.2/src/library/scala/sys/process/ProcessIO.scala#L1 */
-        def apply(in: OutputStream => Unit, out: String => Unit = _ => ()) = {
-          val os = new PipedOutputStream()
-          val is = new PipedInputStream(os)
-          in(os)
-          request(req.subject.underlying(_.setBody(new InputStreamBodyGenerator(is))))(
+        def apply[T](pipe: Pipe, out: String => T) = {
+          request(req.subject.underlying(_.setBody(pipe.pipe( in => new InputStreamBodyGenerator(in)))))(
             new StringsByLine[Unit] with Docker.StreamErrorHandler[Unit]
               with Docker.Stream.Stopper {
               def onStringBy(str: String) = out(str)
@@ -458,7 +455,7 @@ trait Methods { self: Requests =>
       }
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.15/#attach-to-a-container */
-      //def attach = Attach()
+      def attach = Attach()
 
       /** https://docs.docker.com/reference/api/docker_remote_api_v1.16/#wait-a-container */
       def await =
