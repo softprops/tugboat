@@ -524,7 +524,9 @@ trait Methods { self: Requests =>
       def tag(t: String) = copy(_tag = Some(t))
       def registry(r: String) = copy(_registry = Some(r))      
       def apply[T](handler: Docker.Handler[T]) =
-        request(base.POST / "create" <<? query)(handler)
+        request(base.POST / "create" <:< authConfig.map(
+                  ("X-Registry-Auth" -> _.headerValue)
+                 ) <<? query)(handler)
 
        def query = (
          Map("fromImage" -> _fromImage)
