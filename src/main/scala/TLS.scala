@@ -2,6 +2,7 @@ package tugboat
 
 import com.ning.http.client.SSLEngineFactory
 import com.ning.http.client.AsyncHttpClientConfig.Builder
+import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMReader
 import javax.net.ssl.{ KeyManagerFactory, SSLContext, SSLEngine, TrustManagerFactory, X509TrustManager }
@@ -82,15 +83,27 @@ case class TLS(
     val sslParams =  ctx.getDefaultSSLParameters()
     val protocols = Array("TLSv1")
     sslParams.setProtocols(protocols)
-
-    builder.setSSLContext(ctx).setSSLEngineFactory(new SSLEngineFactory() {
-      def newSSLEngine(): SSLEngine = {
-        val engine = ctx.createSSLEngine()
-        engine.setSSLParameters(ctx.getDefaultSSLParameters)
-        engine.setEnabledProtocols(protocols)
-        engine.setUseClientMode(true)
-        engine
-      }
-    })
+    
+    val config = builder.build()
+    val updatedProvider = config.getAsyncHttpProviderConfig match {
+      case netty: NettyAsyncHttpProviderConfig =>
+        netty.setSslEngineFactory(new SSLEngineFactory() {
+          def newSSLEngine(peerHost: String, peerPort: Int): SSLEngine = {
+            val engine = ctx.createSSLEngine(peerHost, peerPort)
+            engine.setSSLParameters(ctx.getDefaultSSLParameters)
+            engine.setEnabledProtocols(protocols)
+            engine.setUseClientMode(true)
+            engine
+          }
+        })
+        netty
+      case dunno =>
+        // user has provided an async client non using a netty provider
+        dunno
+    }
+    
+    new Builder(config)
+      .setAsyncHttpClientProviderConfig(updatedProvider)
+      .setSSLContext(ctx)
   }
 }
