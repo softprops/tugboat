@@ -170,7 +170,7 @@ Identical to the `docker run -p 80:80 captain/ship` command
 ```scala
 (for {
   container <- docker.containers.create("captain/ship")()
-  run       <- docker.containers.get(container.id).start.bind(
+  run       <- docker.containers.get(container.id).start.portBind(
                tugboat.Port.Tcp(80), tugboat.PortBinding.local(80)
             )()
 } yield container.id).foreach(println)
