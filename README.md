@@ -219,7 +219,7 @@ Identical to the `docker restart ship` command
 ship.restart(5.seconds)().foreach(println)
 ```
 
-Eetire the ship
+Retire the ship
 Identical to the `docker rm ship` command
 
 ```scala
