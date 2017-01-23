@@ -5,7 +5,7 @@ import dispatch.{ as, Req }
 import dispatch.stream.StringsByLine
 import java.io.{ File, PipedInputStream, PipedOutputStream, InputStream, OutputStream }
 import org.json4s.JsonDSL._
-import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue }
+import org.json4s.{ JArray, JBool, JInt, JNull, JObject, JString, JValue, JField }
 import org.json4s.native.JsonMethods.{ compact, render }
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -222,9 +222,9 @@ trait Methods { self: Requests =>
       def body = json.str(
         ("Hostname"        -> _config.hostname) ~
         ("Domainname"      -> _config.domainName) ~
-        ("ExposedPorts"    -> _config.exposedPorts.map { ep =>
-          (ep -> JObject())
-        }) ~
+        ("ExposedPorts"    -> JObject(_config.exposedPorts.map { ep =>
+          JField(ep, JObject())
+        }.toList)) ~
         ("User"            -> _config.user) ~
         ("Tty"             -> _config.tty) ~
         ("NetworkDisabled" -> _config.networkDisabled) ~
@@ -238,9 +238,9 @@ trait Methods { self: Requests =>
         ("Env"             -> _config.env.map { case (k,v) => s"$k=$v" }) ~
         ("Cmd"             -> Option(_config.cmd).filter(_.nonEmpty)) ~
         ("Image"           -> _config.image) ~
-        ("Volumes"         -> _config.volumes.map { vol =>
-          (vol, JObject())
-        }) ~
+        ("Volumes"         -> JObject(_config.volumes.map { vol =>
+          JField(vol, JObject())
+        }.toList )) ~
         ("WorkingDir"      -> _config.workingDir) ~
         ("RestartPolicy"   -> _restartPolicy.map { policy =>
           ("Name" -> policy.name)
