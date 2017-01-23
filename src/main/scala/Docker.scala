@@ -168,10 +168,7 @@ object Docker {
           val config = builder.build()
           val updatedProvider = config.getAsyncHttpProviderConfig match {
             case netty: NettyAsyncHttpProviderConfig =>
-              netty.addProperty(
-                NettyAsyncHttpProviderConfig.SOCKET_CHANNEL_FACTORY,
-                sockets
-              )
+              netty.setSocketChannelFactory(sockets)
               netty.setNettyTimer(timer)
               netty
             case dunno =>

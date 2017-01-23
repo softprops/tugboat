@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
   "com.github.jnr" % "jnr-unixsocket" % "0.3",
   "org.bouncycastle" % "bcprov-jdk16" % "1.46",
 //  "org.bouncycastle" % "bcpg-jdk15on" % "1.51",
-  "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.2",
+  "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.3",
   "org.kamranzafar" % "jtar" % "2.2",
   "me.lessis" %% "unisockets-netty" % "0.1.0",
   "org.slf4j" % "slf4j-log4j12" % "1.6.2") // testing/debugging
